@@ -16,13 +16,13 @@ created: 2026-08-04
 - [ ] UI mockup çiz (Figma/Excalidraw)
 
 ## Faz 2: Ada Tütün Desktop (2-3 hafta)
-- [ ] Login ekranı (admin/satis rol)
-- [ ] Dashboard (günlük özet)
-- [ ] Ürün/kategori yönetimi
-- [ ] Stok giriş/çıkış modülü
-- [ ] Satış ekranı (POS — barkod/tıklama)
-- [ ] Raporlama (günlük/haftalık/aylık/custom)
-- [ ] Gelir/gider modülü
+- [x] Login ekranı (admin/satis rol)
+- [x] Dashboard (günlük özet)
+- [x] Ürün/kategori yönetimi
+- [x] Stok giriş/çıkış modülü
+- [x] Satış ekranı (POS — barkod/tıklama)
+- [x] Raporlama (günlük/haftalık/aylık/custom)
+- [x] Gelir/gider modülü
 - [ ] Shift aç/kapat
 - [ ] Stok uyarıları
 - [ ] Yedekleme (export/import)
