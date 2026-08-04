@@ -1,7 +1,6 @@
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use tauri::Manager;
 
 // === DB STATE ===
 pub struct DbState(pub Mutex<Connection>);
