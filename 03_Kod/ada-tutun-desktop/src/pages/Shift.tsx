@@ -12,7 +12,6 @@ export default function Shift() {
 
   const yukle = async () => {
     try {
-      // Aktif shift kontrol — Rust tarafında yok, basit sorgu
       const hareketler = await invoke<any[]>('get_stok_hareketleri', { limit: 5 })
       setGecmis(hareketler)
     } catch (e) { console.error(e) }
@@ -27,7 +26,7 @@ export default function Shift() {
         kullaniciId: kullanici?.id, acilisKasa
       })
       setAktifShift(id)
-      setMesaj(`Shift açıldı #${id}, açılış kasası: ${acilisKasa} ₺`)
+      setMesaj(`Shift acildi #${id}, acilis kasasi: ${acilisKasa} TL`)
       setTimeout(() => setMesaj(''), 3000)
     } catch (e) { setMesaj(`Hata: ${e}`) }
   }
@@ -36,12 +35,33 @@ export default function Shift() {
     if (!aktifShift) return
     try {
       await invoke('shift_kapat', { shiftId: aktifShift, kapanisKasa })
-      setMesaj(`Shift kapatıldı #${aktifShift}, kapanış: ${kapanisKasa} ₺`)
+      setMesaj(`Shift kapatildi #${aktifShift}, kapanis: ${kapanisKasa} TL`)
       setAktifShift(null)
       setAcilisKasa(0)
       setKapanisKasa(0)
       setTimeout(() => setMesaj(''), 3000)
     } catch (e) { setMesaj(`Hata: ${e}`) }
+  }
+
+  const yedekle = async () => {
+    try {
+      const path = await invoke<string>('db_yedekle')
+      setMesaj(`Yedeklendi: ${path}`)
+      setTimeout(() => setMesaj(''), 5000)
+    } catch (e) {
+      if (String(e) !== 'Dosya secimi iptal edildi') setMesaj(`Hata: ${e}`)
+    }
+  }
+
+  const geriYukle = async () => {
+    if (!confirm('Geri yukleme mevcut verilerin uzerine yazacak. Once otomatik yedek alinacak. Devam?')) return
+    try {
+      const msg = await invoke<string>('db_geri_yukle')
+      setMesaj(msg)
+      setTimeout(() => setMesaj(''), 5000)
+    } catch (e) {
+      if (String(e) !== 'Dosya secimi iptal edildi') setMesaj(`Hata: ${e}`)
+    }
   }
 
   return (
@@ -92,6 +112,19 @@ export default function Shift() {
             <div className="flex justify-between"><span className="text-gray-500">Kullanıcı:</span><span className="font-medium">{kullanici?.kullanici_ad}</span></div>
             <div className="flex justify-between"><span className="text-gray-500">Rol:</span><span className="font-medium">{kullanici?.rol}</span></div>
           </div>
+        </div>
+      </div>
+
+      {/* Yedekleme */}
+      <div className="bg-white rounded-xl shadow p-6 mt-4">
+        <h3 className="font-bold text-lg mb-4">Veritabani Yedekleme</h3>
+        <div className="flex gap-3">
+          <button onClick={yedekle} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium">
+            DB Yedekle
+          </button>
+          <button onClick={geriYukle} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium">
+            DB Geri Yukle
+          </button>
         </div>
       </div>
     </div>

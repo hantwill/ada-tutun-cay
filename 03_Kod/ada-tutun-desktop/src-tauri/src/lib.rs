@@ -904,6 +904,46 @@ fn shift_kapat(db: tauri::State<DbState>, shift_id: i64, kapanis_kasa: f64) -> R
     Ok(())
 }
 
+// === YEDEKLEME ===
+
+#[tauri::command]
+fn db_yedekle(db: tauri::State<DbState>) -> Result<String, String> {
+    let file_path = rfd::FileDialog::new()
+        .set_file_name(&format!("ada_tutun_yedek_{}.db", chrono::Local::now().format("%Y%m%d_%H%M%S")))
+        .add_filter("SQLite DB", &["db"])
+        .save_file()
+        .ok_or("Dosya secimi iptal edildi")?;
+    
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+
+    // SQLite backup API kullan
+    conn.execute(&format!("VACUUM INTO '{}'", file_path.to_string_lossy()), [])
+        .map_err(|e| format!("Yedekleme hatasi: {}", e))?;
+    
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn db_geri_yukle(db: tauri::State<DbState>) -> Result<String, String> {
+    let file_path = rfd::FileDialog::new()
+        .set_file_name("ada_tutun_yedek.db")
+        .add_filter("SQLite DB", &["db"])
+        .pick_file()
+        .ok_or("Dosya secimi iptal edildi")?;
+    
+    let db_path = std::env::current_dir().unwrap_or_default().join("ada_tutun.db");
+    
+    // Once mevcut DB'yi yedekle (guvenlik)
+    let backup_name = format!("ada_tutun_otomatik_yedek_{}.db", chrono::Local::now().format("%Y%m%d_%H%M%S"));
+    let backup_path = db_path.with_file_name(&backup_name);
+    std::fs::copy(&db_path, &backup_path).map_err(|e| format!("Otomatik yedek hatasi: {}", e))?;
+    
+    // Yedek dosyasini kopyala
+    std::fs::copy(&file_path, &db_path).map_err(|e| format!("Geri yukleme hatasi: {}", e))?;
+    
+    Ok(format!("Geri yuklendi. Otomatik yedek: {}", backup_path.to_string_lossy()))
+}
+
 // === MAIN ===
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -940,6 +980,8 @@ pub fn run() {
             get_kategoriler,
             shift_ac,
             shift_kapat,
+            db_yedekle,
+            db_geri_yukle,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

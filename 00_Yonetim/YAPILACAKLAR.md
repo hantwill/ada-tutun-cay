@@ -29,8 +29,8 @@ updated: 2026-08-05
 - [x] Kullanıcı yönetimi (ekle/sil/şifre değiştir/rol)
 - [x] Excel/CSV export (tarih aralığı + dosya diyaloğu)
 - [x] Tarih formatı dd/mm/yyyy
-- [ ] Yedekleme (DB export/import)
-- [ ] Cross-platform build (Linux/Win/Mac)
+- [x] Yedekleme (DB export/import — SQLite VACUUM)
+- [ ] Cross-platform build (Linux/Win/Mac — GitHub Actions)
 
 ## Faz 3: Ada Çay Evi Web (2-3 hafta)
 - [ ] Garson login (telefon, PWA)
