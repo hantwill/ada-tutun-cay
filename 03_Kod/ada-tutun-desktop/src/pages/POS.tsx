@@ -42,8 +42,18 @@ export default function POS() {
   )
 
   const sepeteEkle = (u: Urun) => {
+    if (u.stok <= 0) {
+      setMesaj(`${u.ad} stokta yok!`)
+      setTimeout(() => setMesaj(''), 3000)
+      return
+    }
     const existing = sepet.find(s => s.urun_id === u.id)
     if (existing) {
+      if (existing.miktar >= u.stok) {
+        setMesaj(`${u.ad} için yeterli stok yok! (Stok: ${u.stok})`)
+        setTimeout(() => setMesaj(''), 3000)
+        return
+      }
       setSepet(sepet.map(s => s.urun_id === u.id
         ? { ...s, miktar: s.miktar + 1, toplam: Math.round((s.birim_fiyat * (s.miktar + 1)) * 100) / 100 }
         : s
@@ -94,8 +104,18 @@ export default function POS() {
   // Barkod input
   const [barkodInput, setBarkodInput] = useState('')
   const barkodAra = async () => {
-    const u = await invoke<Urun | null>('get_urun_by_barkod', { barkod: barkodInput })
-    if (u) sepeteEkle(u)
+    try {
+      const u = await invoke<Urun | null>('get_urun_by_barkod', { barkod: barkodInput })
+      if (u) {
+        sepeteEkle(u)
+      } else {
+        setMesaj(`Barkod bulunamadı: ${barkodInput}`)
+        setTimeout(() => setMesaj(''), 3000)
+      }
+    } catch (e) {
+      setMesaj(`Hata: ${e}`)
+      setTimeout(() => setMesaj(''), 3000)
+    }
     setBarkodInput('')
   }
 

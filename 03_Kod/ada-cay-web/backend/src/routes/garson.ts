@@ -4,14 +4,13 @@ import { authMiddleware } from '../middleware/auth.js';
 
 export const garsonRoutes = Router();
 
-// Login — bcrypt hash karşılaştırma (Faz 2'de bcrypt kütüphanesi ile)
+// Login — SHA256 (Faz 3'de bcrypt/argon2'ye geçilecek)
 garsonRoutes.post('/login', async (req, res) => {
   const { kullanici_ad, sifre } = req.body;
   if (!kullanici_ad || !sifre) {
     return res.status(400).json({ error: 'Kullanıcı ad ve şifre gerekli' });
   }
   try {
-    // Şifre hash olarak saklanmalı, şimdilik SHA256 karşılaştırma
     const crypto = await import('node:crypto');
     const sifreHash = crypto.createHash('sha256').update(sifre).digest('hex');
     
@@ -22,9 +21,13 @@ garsonRoutes.post('/login', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Hatalı giriş' });
     }
-    // Basit token (Faz 2'de JWT ile değiştirilecek)
+    // Token: SHA256 imzalı (Faz 3'de JWT'ye geçilecek)
     const user = result.rows[0];
-    const token = Buffer.from(JSON.stringify(user)).toString('base64');
+    const payload = JSON.stringify({ id: user.id, rol: user.rol, ad: user.ad });
+    const payload64 = Buffer.from(payload).toString('base64');
+    const secret = process.env.JWT_SECRET || 'dev_secret';
+    const sig = crypto.createHmac('sha256', secret).update(payload64).digest('hex');
+    const token = `${payload64}.${sig}`;
     res.json({ ...user, token });
   } catch (e) {
     console.error('Login hatası:', e);

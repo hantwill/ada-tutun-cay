@@ -50,14 +50,11 @@ CREATE TABLE adisyonlar (
     garson_id INTEGER NOT NULL REFERENCES garsonlar(id),
     baslangic TIMESTAMP NOT NULL DEFAULT NOW(),
     bitis TIMESTAMP,
-    ara_toplam NUMERIC(10,2) DEFAULT 0,
-    indirim NUMERIC(10,2) DEFAULT 0,
-    toplam NUMERIC(10,2) DEFAULT 0,
+    ara_toplam NUMERIC(10,2) DEFAULT 0 CHECK(ara_toplam >= 0),
+    indirim NUMERIC(10,2) DEFAULT 0 CHECK(indirim >= 0),
+    toplam NUMERIC(10,2) DEFAULT 0 CHECK(toplam >= 0),
     odeme_tipi VARCHAR(20) CHECK(odeme_tipi IS NULL OR odeme_tipi IN ('nakit', 'kart')),
     durum VARCHAR(20) DEFAULT 'acik' CHECK(durum IN ('acik', 'kapali', 'iptal')),
-    indirim NUMERIC(10,2) DEFAULT 0 CHECK(indirim >= 0),
-    ara_toplam NUMERIC(10,2) DEFAULT 0 CHECK(ara_toplam >= 0),
-    toplam NUMERIC(10,2) DEFAULT 0 CHECK(toplam >= 0),
     notlar TEXT
 );
 

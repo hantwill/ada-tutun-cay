@@ -101,7 +101,7 @@ adminRoutes.get('/rapor', async (req, res) => {
 adminRoutes.post('/gelir-gider', async (req, res) => {
   const { tip, kategori, miktar, aciklama, kullanici_id } = req.body;
   if (!tip || !['gelir', 'gider'].includes(tip)) {
-    return res.status(400).json({ error: 'tip gelic veya gider olmalı' });
+    return res.status(400).json({ error: 'tip gelir veya gider olmalı' });
   }
   if (!miktar || miktar <= 0) {
     return res.status(400).json({ error: 'miktar pozitif olmalı' });

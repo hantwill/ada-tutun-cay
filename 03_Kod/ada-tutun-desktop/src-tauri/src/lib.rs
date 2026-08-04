@@ -287,22 +287,43 @@ fn satis_yap(
     indirim: f64,
     kalemler: Vec<SatisKalemi>,
 ) -> Result<i64, String> {
+    if kalemler.is_empty() {
+        return Err("Sepet boş".to_string());
+    }
+    if indirim < 0.0 {
+        return Err("İndirim negatif olamaz".to_string());
+    }
     let mut conn = db.0.lock().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     
     let ara_toplam: f64 = kalemler.iter().map(|k| k.toplam).sum();
+    if indirim > ara_toplam {
+        return Err("İndirim ara toplamdan büyük olamaz".to_string());
+    }
     let toplam = ((ara_toplam - indirim) * 100.0).round() / 100.0;
+    
+    // Aktif shift varsa al
+    let shift_id: Option<i64> = tx.query_row(
+        "SELECT id FROM shiftler WHERE kullanici_id = ?1 AND durum = 'acik' ORDER BY id DESC LIMIT 1",
+        rusqlite::params![kullanici_id],
+        |r| r.get(0),
+    ).ok();
     
     // Satış kaydı
     tx.execute(
-        "INSERT INTO satislar (kullanici_id, ara_toplam, indirim, toplam, odeme_tipi) VALUES (?1, ?2, ?3, ?4, ?5)",
-        rusqlite::params![kullanici_id, ara_toplam, indirim, toplam, odeme_tipi],
+        "INSERT INTO satislar (shift_id, kullanici_id, ara_toplam, indirim, toplam, odeme_tipi) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        rusqlite::params![shift_id, kullanici_id, ara_toplam, indirim, toplam, odeme_tipi],
     ).map_err(|e| e.to_string())?;
     
     let satis_id = tx.last_insert_rowid();
     
     // Kalemleri ekle + stok düş
     for k in &kalemler {
+        // Stok kontrolü
+        let stok: i64 = tx.query_row("SELECT stok FROM urunler WHERE id = ?1", [k.urun_id], |r| r.get(0)).map_err(|e| e.to_string())?;
+        if stok < k.miktar {
+            return Err(format!("Yetersiz stok: ürün ID {} (stok: {}, istenen: {})", k.urun_id, stok, k.miktar));
+        }
         tx.execute(
             "INSERT INTO satis_kalemleri (satis_id, urun_id, miktar, birim_fiyat, toplam) VALUES (?1, ?2, ?3, ?4, ?5)",
             rusqlite::params![satis_id, k.urun_id, k.miktar, k.birim_fiyat, k.toplam],
@@ -401,6 +422,18 @@ fn urun_ekle(
     stok: i64,
     kritik_seviye: i64,
 ) -> Result<i64, String> {
+    if ad.trim().is_empty() {
+        return Err("Ürün adı boş olamaz".to_string());
+    }
+    if satis_fiyat <= 0.0 {
+        return Err("Satış fiyatı pozitif olmalı".to_string());
+    }
+    if alis_fiyat < 0.0 {
+        return Err("Alış fiyatı negatif olamaz".to_string());
+    }
+    if stok < 0 {
+        return Err("Stok negatif olamaz".to_string());
+    }
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO urunler (barkod, ad, kategori_id, alis_fiyat, satis_fiyat, stok, kritik_seviye) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -440,7 +473,7 @@ fn get_dashboard(db: tauri::State<DbState>, kullanici_id: i64) -> Result<Dashboa
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     
     let bugun_satis: f64 = conn.query_row(
-        "SELECT COALESCE(SUM(toplam), 0) FROM satislar WHERE tarih::date = date('now', 'localtime') AND durum='tamamlandi'",
+        "SELECT COALESCE(SUM(toplam), 0) FROM satislar WHERE date(tarih)=date('now', 'localtime') AND durum='tamamlandi'",
         [], |r| r.get(0),
     ).unwrap_or(0.0);
     

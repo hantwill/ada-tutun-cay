@@ -16,8 +16,9 @@ interface Satis {
 export default function Raporlar() {
   const { kullanici } = useStore()
   const [satislar, setSatislar] = useState<Satis[]>([])
-  const [baslangic, setBaslangic] = useState(new Date().toISOString().split('T')[0])
-  const [bitis, setBitis] = useState(new Date().toISOString().split('T')[0])
+  const today = new Date()
+  const [baslangic, setBaslangic] = useState(today.toISOString().split('T')[0])
+  const [bitis, setBitis] = useState(today.toISOString().split('T')[0])
   const [gelir, setGelir] = useState(0)
   const [gider, setGider] = useState(0)
   const [yeniTip, setYeniTip] = useState<'gelir' | 'gider'>('gelir')

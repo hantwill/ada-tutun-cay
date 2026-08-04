@@ -1,9 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
+import * as crypto from 'node:crypto';
 
-// JWT secret — env'den gelmeli
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('HATA: JWT_SECRET env degiskeni tanimli degil!');
+  process.exit(1);
+}
 
-// Basit JWT verify (Faz 2'de jsonwebtoken kütüphanesi ile değiştirilecek)
+// HMAC-SHA256 imzalı token verify
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -11,9 +15,16 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   }
   const token = authHeader.substring(7);
   try {
-    // Basit base64 decode (Faz 2'de gerçek JWT verify)
-    const decoded = Buffer.from(token, 'base64').toString('utf-8');
-    const payload = JSON.parse(decoded);
+    const [payload64, sig] = token.split('.');
+    if (!payload64 || !sig) {
+      return res.status(401).json({ error: 'Geçersiz token formatı' });
+    }
+    // İmzayı doğrula
+    const expectedSig = crypto.createHmac('sha256', JWT_SECRET!).update(payload64).digest('hex');
+    if (sig !== expectedSig) {
+      return res.status(401).json({ error: 'Geçersiz imza' });
+    }
+    const payload = JSON.parse(Buffer.from(payload64, 'base64').toString('utf-8'));
     (req as any).user = payload;
     next();
   } catch {

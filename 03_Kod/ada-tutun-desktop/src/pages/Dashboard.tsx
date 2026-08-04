@@ -14,11 +14,13 @@ interface DashboardData {
 export default function Dashboard() {
   const { kullanici } = useStore()
   const [data, setData] = useState<DashboardData | null>(null)
+  const [yukleniyor, setYukleniyor] = useState(true)
 
   useEffect(() => {
+    setYukleniyor(true)
     invoke<DashboardData>('get_dashboard', { kullaniciId: kullanici?.id || 0 })
-      .then(setData)
-      .catch(console.error)
+      .then((d) => { setData(d); setYukleniyor(false) })
+      .catch((e) => { console.error(e); setYukleniyor(false) })
   }, [kullanici])
 
   const cards = [
@@ -33,21 +35,27 @@ export default function Dashboard() {
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h2>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {cards.map((c) => (
-          <div key={c.label} className={`bg-gradient-to-br ${c.color} text-white p-6 rounded-xl shadow-lg`}>
-            <p className="text-sm opacity-90">{c.label}</p>
-            <p className="text-2xl font-bold mt-2">{c.value}</p>
+      {yukleniyor ? (
+        <p className="text-gray-400">Yükleniyor...</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {cards.map((c) => (
+              <div key={c.label} className={`bg-gradient-to-br ${c.color} text-white p-6 rounded-xl shadow-lg`}>
+                <p className="text-sm opacity-90">{c.label}</p>
+                <p className="text-2xl font-bold mt-2">{c.value}</p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      {data?.kritik_stok && data.kritik_stok > 0 ? (
-        <div className="mt-6 bg-orange-50 border border-orange-200 p-4 rounded-lg">
-          <p className="text-orange-800 font-medium">
-            ⚠️ {data.kritik_stok} üründe stok kritik seviyede!
-          </p>
-        </div>
-      ) : null}
+          {data?.kritik_stok && data.kritik_stok > 0 ? (
+            <div className="mt-6 bg-orange-50 border border-orange-200 p-4 rounded-lg">
+              <p className="text-orange-800 font-medium">
+                ⚠️ {data.kritik_stok} üründe stok kritik seviyede!
+              </p>
+            </div>
+          ) : null}
+        </>
+      )}
     </div>
   )
 }
