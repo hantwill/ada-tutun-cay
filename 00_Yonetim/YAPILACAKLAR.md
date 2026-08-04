@@ -11,8 +11,8 @@ created: 2026-08-04
 - [x] Tauri + React projesi init (Ada Tütün)
 - [x] React PWA + Node.js proje init (Ada Çay Evi)
 - [x] Veritabanı şeması tasarla (SQLite + PostgreSQL)
-- [ ] Obsidian Vault yapılandır
-- [ ] RAG sistemi kur (Qdrant index)
+- [x] Obsidian Vault yapılandır
+- [x] RAG sistemi kur (Qdrant index)
 - [ ] UI mockup çiz (Figma/Excalidraw)
 
 ## Faz 2: Ada Tütün Desktop (2-3 hafta)

@@ -124,8 +124,8 @@ gelir_gider (id, tip, miktar, kategori, aciklama, tarih)
 - [x] Tauri + React projesi init (Ada Tütün)
 - [x] React PWA + Node.js projesi init (Ada Çay Evi)
 - [x] Veritabanı şeması tasarla ve uygula
-- [ ] Obsidian Vault yapılandır
-- [ ] RAG sistemi kur (doküman indexing)
+- [x] Obsidian Vault yapılandır
+- [x] RAG sistemi kur (doküman indexing)
 
 ### Faz 2: Ada Tütün Desktop (2-3 hafta)
 - [ ] Login ekranı (admin/satis rol)
