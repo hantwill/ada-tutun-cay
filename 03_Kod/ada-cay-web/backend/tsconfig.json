@@ -2,7 +2,8 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "NodeNext",
+    "module": "NodeNext",
     "esModuleInterop": true,
     "strict": true,
     "outDir": "./dist",

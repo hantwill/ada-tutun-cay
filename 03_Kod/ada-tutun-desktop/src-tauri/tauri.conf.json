@@ -2,9 +2,9 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Ada Tütün",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "com.ada.tutun",
   "build": {
-    "frontendDist": "../ada-tutun-desktop/dist",
+    "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"

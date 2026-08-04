@@ -53,7 +53,7 @@ CREATE TABLE adisyonlar (
     ara_toplam NUMERIC(10,2) DEFAULT 0,
     indirim NUMERIC(10,2) DEFAULT 0,
     toplam NUMERIC(10,2) DEFAULT 0,
-    odeme_tipi VARCHAR(20) CHECK(odeme_tipi IN ('nakit', 'kart', NULL)),
+    odeme_tipi VARCHAR(20) CHECK(odeme_tipi IS NULL OR odeme_tipi IN ('nakit', 'kart')),
     durum VARCHAR(20) DEFAULT 'acik' CHECK(durum IN ('acik', 'kapali', 'iptal')),
     notlar TEXT
 );
