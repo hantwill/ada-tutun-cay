@@ -23,8 +23,8 @@ created: 2026-08-04
 - [x] Satış ekranı (POS — barkod/tıklama)
 - [x] Raporlama (günlük/haftalık/aylık/custom)
 - [x] Gelir/gider modülü
-- [ ] Shift aç/kapat
-- [ ] Stok uyarıları
+- [x] Shift aç/kapat
+- [x] Stok uyarıları
 - [ ] Yedekleme (export/import)
 - [ ] Kullanıcı yönetimi
 - [ ] Cross-platform build (Linux/Win/Mac)

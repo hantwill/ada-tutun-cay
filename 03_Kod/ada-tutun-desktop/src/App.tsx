@@ -4,17 +4,22 @@ import Dashboard from './pages/Dashboard'
 import POS from './pages/POS'
 import Stok from './pages/Stok'
 import Raporlar from './pages/Raporlar'
+import Shift from './pages/Shift'
+import Urunler from './pages/Urunler'
 
 const menuAdmin = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
   { id: 'pos', label: 'Satış (POS)', icon: '🛒' },
   { id: 'stok', label: 'Stok', icon: '📦' },
+  { id: 'urunler', label: 'Ürünler', icon: '🏷️' },
   { id: 'raporlar', label: 'Raporlar', icon: '📈' },
+  { id: 'shift', label: 'Shift', icon: '🕐' },
 ]
 
 const menuSatis = [
   { id: 'pos', label: 'Satış (POS)', icon: '🛒' },
   { id: 'dashboard', label: 'Günlük Özet', icon: '📊' },
+  { id: 'shift', label: 'Shift', icon: '🕐' },
 ]
 
 export default function App() {
@@ -32,7 +37,7 @@ export default function App() {
           <h1 className="text-xl font-bold">Ada Tütün</h1>
           <p className="text-xs text-gray-400 mt-1">{kullanici.ad} ({kullanici.rol})</p>
         </div>
-        <nav className="flex-1 p-2">
+        <nav className="flex-1 p-2 overflow-y-auto">
           {menu.map(m => (
             <button
               key={m.id}
@@ -60,7 +65,9 @@ export default function App() {
         {sayfa === 'dashboard' && <Dashboard />}
         {sayfa === 'pos' && <POS />}
         {sayfa === 'stok' && kullanici.rol === 'admin' && <Stok />}
+        {sayfa === 'urunler' && kullanici.rol === 'admin' && <Urunler />}
         {sayfa === 'raporlar' && kullanici.rol === 'admin' && <Raporlar />}
+        {sayfa === 'shift' && <Shift />}
       </div>
     </div>
   )
