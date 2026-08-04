@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useStore } from '../store'
+import { isoToTr } from '../tarih'
 
 interface DashboardData {
   bugun_satis: number
@@ -34,7 +35,8 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-2">Dashboard</h2>
+      <p className="text-sm text-gray-400 mb-4">Bugün: {isoToTr(new Date().toISOString().split('T')[0])}</p>
       {yukleniyor ? (
         <p className="text-gray-400">Yükleniyor...</p>
       ) : (

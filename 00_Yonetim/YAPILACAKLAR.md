@@ -2,6 +2,7 @@
 type: todo
 project: ada-tutun-cay
 created: 2026-08-04
+updated: 2026-08-05
 ---
 
 # ✅ YAPILACAKLAR LİSTESİ — Ada Tütün ve Çay
@@ -22,11 +23,13 @@ created: 2026-08-04
 - [x] Stok giriş/çıkış modülü
 - [x] Satış ekranı (POS — barkod/tıklama)
 - [x] Raporlama (günlük/haftalık/aylık/custom)
-- [x] Gelir/gider modülü
+- [x] Gelir/gider modülü (ciroya entegre)
 - [x] Shift aç/kapat
 - [x] Stok uyarıları
-- [ ] Yedekleme (export/import)
-- [ ] Kullanıcı yönetimi
+- [x] Kullanıcı yönetimi (ekle/sil/şifre değiştir/rol)
+- [x] Excel/CSV export (tarih aralığı + dosya diyaloğu)
+- [x] Tarih formatı dd/mm/yyyy
+- [ ] Yedekleme (DB export/import)
 - [ ] Cross-platform build (Linux/Win/Mac)
 
 ## Faz 3: Ada Çay Evi Web (2-3 hafta)
@@ -48,8 +51,8 @@ created: 2026-08-04
 - [ ] Unit test (her iki sistem)
 - [ ] Integration test
 - [ ] UAT (gerçek mağazada test)
-- [ ] Windows build (Ada Tütün .exe)
-- [ ] Linux build (Ada Tütün .deb)
+- [ ] Windows build (Ada Tütün .exe/.msi)
+- [ ] Linux build (Ada Tütün .deb) — TAMAM
 - [ ] macOS build (Ada Tütün .dmg)
 - [ ] Web deploy (Ada Çay Evi)
 - [ ] Kullanıcı eğitimi

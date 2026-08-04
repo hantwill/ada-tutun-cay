@@ -15,6 +15,16 @@ pub struct Kullanici {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct KullaniciListe {
+    pub id: i64,
+    pub kullanici_ad: String,
+    pub ad: String,
+    pub rol: String,
+    pub aktif: i64,
+    pub olusturma_tarih: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Urun {
     pub id: i64,
     pub barkod: Option<String>,
@@ -66,6 +76,16 @@ pub struct StokHareket {
     pub urun_ad: String,
     pub tip: String,
     pub miktar: i64,
+    pub aciklama: Option<String>,
+    pub tarih: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GelirGiderKayit {
+    pub id: i64,
+    pub tip: String,
+    pub kategori: Option<String>,
+    pub miktar: f64,
     pub aciklama: Option<String>,
     pub tarih: String,
 }
@@ -178,7 +198,6 @@ fn init_db(conn: &Connection) -> Result<(), rusqlite::Error> {
     // Default admin
     let user_count: i64 = conn.query_row("SELECT COUNT(*) FROM kullanicilar", [], |r| r.get(0))?;
     if user_count == 0 {
-        // SHA256("admin123") = 240be518fabd2724c98c8b3a0b9c9d9a...
         let hash = sha256_hash("admin123");
         conn.execute(
             "INSERT INTO kullanicilar (kullanici_ad, sifre_hash, rol, ad) VALUES ('admin', ?1, 'admin', 'Yonetici')",
@@ -221,6 +240,122 @@ fn login(db: tauri::State<DbState>, kullanici_ad: String, sifre: String) -> Resu
         Err(e) => Err(e.to_string()),
     }
 }
+
+// === KULLANICI YÖNETİMİ ===
+
+#[tauri::command]
+fn get_kullanicilar(db: tauri::State<DbState>) -> Result<Vec<KullaniciListe>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, kullanici_ad, ad, rol, aktif, olusturma_tarih FROM kullanicilar ORDER BY id"
+    ).map_err(|e| e.to_string())?;
+    
+    let kullanicilar = stmt.query_map([], |row| {
+        Ok(KullaniciListe {
+            id: row.get(0)?,
+            kullanici_ad: row.get(1)?,
+            ad: row.get(2)?,
+            rol: row.get(3)?,
+            aktif: row.get(4)?,
+            olusturma_tarih: row.get(5)?,
+        })
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+    
+    Ok(kullanicilar)
+}
+
+#[tauri::command]
+fn kullanici_ekle(
+    db: tauri::State<DbState>,
+    kullanici_ad: String,
+    sifre: String,
+    ad: String,
+    rol: String,
+) -> Result<i64, String> {
+    if kullanici_ad.trim().is_empty() {
+        return Err("Kullanıcı adı boş olamaz".to_string());
+    }
+    if sifre.len() < 3 {
+        return Err("Şifre en az 3 karakter olmalı".to_string());
+    }
+    if !["admin", "satis"].contains(&rol.as_str()) {
+        return Err("Rol admin veya satis olmalı".to_string());
+    }
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let hash = sha256_hash(&sifre);
+    conn.execute(
+        "INSERT INTO kullanicilar (kullanici_ad, sifre_hash, rol, ad) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![kullanici_ad, hash, rol, ad],
+    ).map_err(|e| {
+        if e.to_string().contains("UNIQUE") {
+            "Bu kullanıcı adı zaten mevcut".to_string()
+        } else {
+            e.to_string()
+        }
+    })?;
+    Ok(conn.last_insert_rowid())
+}
+
+#[tauri::command]
+fn kullanici_sifre_degistir(
+    db: tauri::State<DbState>,
+    kullanici_id: i64,
+    yeni_sifre: String,
+) -> Result<(), String> {
+    if yeni_sifre.len() < 3 {
+        return Err("Şifre en az 3 karakter olmalı".to_string());
+    }
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let hash = sha256_hash(&yeni_sifre);
+    conn.execute(
+        "UPDATE kullanicilar SET sifre_hash = ?1 WHERE id = ?2",
+        rusqlite::params![hash, kullanici_id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn kullanici_guncelle(
+    db: tauri::State<DbState>,
+    kullanici_id: i64,
+    ad: String,
+    rol: String,
+    aktif: bool,
+) -> Result<(), String> {
+    if !["admin", "satis"].contains(&rol.as_str()) {
+        return Err("Rol admin veya satis olmalı".to_string());
+    }
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE kullanicilar SET ad = ?1, rol = ?2, aktif = ?3 WHERE id = ?4",
+        rusqlite::params![ad, rol, aktif as i64, kullanici_id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn kullanici_sil(db: tauri::State<DbState>, kullanici_id: i64) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    // Kendini silemesin
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM kullanicilar WHERE rol = 'admin' AND aktif = 1",
+        [], |r| r.get(0)
+    ).unwrap_or(0);
+    let is_admin: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM kullanicilar WHERE id = ?1 AND rol = 'admin'",
+        rusqlite::params![kullanici_id], |r| r.get(0)
+    ).unwrap_or(0);
+    if is_admin > 0 && count <= 1 {
+        return Err("Son admin silinemez".to_string());
+    }
+    conn.execute("DELETE FROM kullanicilar WHERE id = ?1", rusqlite::params![kullanici_id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// === ÜRÜNLER ===
 
 #[tauri::command]
 fn get_urunler(db: tauri::State<DbState>) -> Result<Vec<Urun>, String> {
@@ -322,7 +457,7 @@ fn satis_yap(
         // Stok kontrolü
         let stok: i64 = tx.query_row("SELECT stok FROM urunler WHERE id = ?1", [k.urun_id], |r| r.get(0)).map_err(|e| e.to_string())?;
         if stok < k.miktar {
-            return Err(format!("Yetersiz stok: ürün ID {} (stok: {}, istenen: {})", k.urun_id, stok, k.miktar));
+            return Err(format!("Yetersiz stok: urun ID {} (stok: {}, istenen: {})", k.urun_id, stok, k.miktar));
         }
         tx.execute(
             "INSERT INTO satis_kalemleri (satis_id, urun_id, miktar, birim_fiyat, toplam) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -423,13 +558,13 @@ fn urun_ekle(
     kritik_seviye: i64,
 ) -> Result<i64, String> {
     if ad.trim().is_empty() {
-        return Err("Ürün adı boş olamaz".to_string());
+        return Err("Urun adi bos olamaz".to_string());
     }
     if satis_fiyat <= 0.0 {
-        return Err("Satış fiyatı pozitif olmalı".to_string());
+        return Err("Satis fiyati pozitif olmali".to_string());
     }
     if alis_fiyat < 0.0 {
-        return Err("Alış fiyatı negatif olamaz".to_string());
+        return Err("Alis fiyati negatif olamaz".to_string());
     }
     if stok < 0 {
         return Err("Stok negatif olamaz".to_string());
@@ -500,7 +635,7 @@ fn get_dashboard(db: tauri::State<DbState>, kullanici_id: i64) -> Result<Dashboa
         "SELECT COUNT(*) FROM urunler WHERE aktif=1 AND stok <= kritik_seviye", [], |r| r.get(0)
     ).unwrap_or(0);
     
-    let _ = kullanici_id; // TODO: kullanici bazli filtre
+    let _ = kullanici_id;
     
     Ok(DashboardData {
         bugun_satis,
@@ -544,6 +679,8 @@ fn get_rapor(
     Ok(satislar)
 }
 
+// === GELİR/GİDER ===
+
 #[tauri::command]
 fn gelir_gider_ekle(
     db: tauri::State<DbState>,
@@ -566,6 +703,133 @@ fn gelir_gider_ekle(
     ).map_err(|e| e.to_string())?;
     Ok(conn.last_insert_rowid())
 }
+
+#[tauri::command]
+fn get_gelir_gider(
+    db: tauri::State<DbState>,
+    baslangic: String,
+    bitis: String,
+) -> Result<Vec<GelirGiderKayit>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, tip, kategori, miktar, aciklama, tarih
+         FROM gelir_gider
+         WHERE date(tarih) BETWEEN date(?1) AND date(?2)
+         ORDER BY tarih DESC"
+    ).map_err(|e| e.to_string())?;
+    
+    let kayitlar = stmt.query_map(rusqlite::params![baslangic, bitis], |row| {
+        Ok(GelirGiderKayit {
+            id: row.get(0)?,
+            tip: row.get(1)?,
+            kategori: row.get(2)?,
+            miktar: row.get(3)?,
+            aciklama: row.get(4)?,
+            tarih: row.get(5)?,
+        })
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+    
+    Ok(kayitlar)
+}
+
+// === EXCEL/CSV EXPORT ===
+
+#[tauri::command]
+fn export_satislar_csv(
+    db: tauri::State<DbState>,
+    baslangic: String,
+    bitis: String,
+) -> Result<String, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    
+    // Dosya kaydetme diyaloğu
+    let file_path = rfd::FileDialog::new()
+        .set_file_name(&format!("satislar_{}_{}.csv", baslangic, bitis))
+        .add_filter("CSV / Excel", &["csv"])
+        .save_file()
+        .ok_or("Dosya secimi iptal edildi")?;
+    
+    let mut stmt = conn.prepare(
+        "SELECT s.id, s.tarih, k.ad, s.ara_toplam, s.indirim, s.toplam, s.odeme_tipi, s.durum
+         FROM satislar s JOIN kullanicilar k ON s.kullanici_id = k.id
+         WHERE date(s.tarih) BETWEEN date(?1) AND date(?2)
+         ORDER BY s.tarih DESC"
+    ).map_err(|e| e.to_string())?;
+    
+    let satislar = stmt.query_map(rusqlite::params![baslangic, bitis], |row| {
+        Ok(Satis {
+            id: row.get(0)?,
+            tarih: row.get(1)?,
+            kullanici_ad: row.get(2)?,
+            ara_toplam: row.get(3)?,
+            indirim: row.get(4)?,
+            toplam: row.get(5)?,
+            odeme_tipi: row.get(6)?,
+            durum: row.get(7)?,
+        })
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect::<Vec<_>>();
+    
+    // Gelir/gider kayıtları da ekle
+    let mut stmt2 = conn.prepare(
+        "SELECT id, tip, kategori, miktar, aciklama, tarih
+         FROM gelir_gider
+         WHERE date(tarih) BETWEEN date(?1) AND date(?2)
+         ORDER BY tarih DESC"
+    ).map_err(|e| e.to_string())?;
+    
+    let gelir_gider = stmt2.query_map(rusqlite::params![baslangic, bitis], |row| {
+        Ok(GelirGiderKayit {
+            id: row.get(0)?,
+            tip: row.get(1)?,
+            kategori: row.get(2)?,
+            miktar: row.get(3)?,
+            aciklama: row.get(4)?,
+            tarih: row.get(5)?,
+        })
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect::<Vec<_>>();
+    
+    // CSV içeriği — BOM ile (Excel Türkçe karakter desteği)
+    let mut csv = String::from("\u{FEFF}"); // UTF-8 BOM
+    csv.push_str("Tip;ID;Tarih;Kullanici/Kategori;Aciklama;Ara Toplam;Indirim;Toplam;Odeme;Durum\n");
+    
+    for s in &satislar {
+        csv.push_str(&format!(
+            "Satis;{};{};{};;{:.2};{:.2};{:.2};{};{}\n",
+            s.id, s.tarih, s.kullanici_ad, s.ara_toplam, s.indirim, s.toplam, s.odeme_tipi, s.durum
+        ));
+    }
+    
+    for g in &gelir_gider {
+        let aciklama = g.aciklama.as_deref().unwrap_or("");
+        let kategori = g.kategori.as_deref().unwrap_or("");
+        csv.push_str(&format!(
+            "{};{};{};{};{};;;{:.2};;\n",
+            g.tip, g.id, g.tarih, kategori, aciklama, g.miktar
+        ));
+    }
+    
+    // Toplamlar
+    let satis_toplam: f64 = satislar.iter().filter(|s| s.durum == "tamamlandi").map(|s| s.toplam).sum();
+    let gelir_toplam: f64 = gelir_gider.iter().filter(|g| g.tip == "gelir").map(|g| g.miktar).sum();
+    let gider_toplam: f64 = gelir_gider.iter().filter(|g| g.tip == "gider").map(|g| g.miktar).sum();
+    
+    csv.push_str(&format!(
+        "\n;;;Toplam Satis: {:.2};;;Toplam Gelir: {:.2};;;Toplam Gider: {:.2}\n",
+        satis_toplam, gelir_toplam, gider_toplam
+    ));
+    
+    std::fs::write(&file_path, csv).map_err(|e| e.to_string())?;
+    
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+// === STOK ===
 
 #[tauri::command]
 fn get_stok_hareketleri(
@@ -650,9 +914,15 @@ pub fn run() {
     init_db(&conn).expect("DB init hatasi");
     
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(DbState(Mutex::new(conn)))
         .invoke_handler(tauri::generate_handler![
             login,
+            get_kullanicilar,
+            kullanici_ekle,
+            kullanici_sifre_degistir,
+            kullanici_guncelle,
+            kullanici_sil,
             get_urunler,
             get_urun_by_barkod,
             satis_yap,
@@ -664,6 +934,8 @@ pub fn run() {
             get_dashboard,
             get_rapor,
             gelir_gider_ekle,
+            get_gelir_gider,
+            export_satislar_csv,
             get_stok_hareketleri,
             get_kategoriler,
             shift_ac,

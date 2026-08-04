@@ -6,6 +6,7 @@ import Stok from './pages/Stok'
 import Raporlar from './pages/Raporlar'
 import Shift from './pages/Shift'
 import Urunler from './pages/Urunler'
+import Kullanicilar from './pages/Kullanicilar'
 
 const menuAdmin = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -14,6 +15,7 @@ const menuAdmin = [
   { id: 'urunler', label: 'Ürünler', icon: '🏷️' },
   { id: 'raporlar', label: 'Raporlar', icon: '📈' },
   { id: 'shift', label: 'Shift', icon: '🕐' },
+  { id: 'kullanicilar', label: 'Kullanıcılar', icon: '👥' },
 ]
 
 const menuSatis = [
@@ -68,6 +70,7 @@ export default function App() {
         {sayfa === 'urunler' && kullanici.rol === 'admin' && <Urunler />}
         {sayfa === 'raporlar' && kullanici.rol === 'admin' && <Raporlar />}
         {sayfa === 'shift' && <Shift />}
+        {sayfa === 'kullanicilar' && kullanici.rol === 'admin' && <Kullanicilar />}
       </div>
     </div>
   )
