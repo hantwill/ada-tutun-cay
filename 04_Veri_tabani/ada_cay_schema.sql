@@ -37,7 +37,7 @@ CREATE TABLE urunler (
     id SERIAL PRIMARY KEY,
     ad VARCHAR(100) NOT NULL,
     kategori_id INTEGER REFERENCES kategoriler(id),
-    fiyat NUMERIC(10,2) NOT NULL DEFAULT 0,
+    fiyat NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK(fiyat >= 0),
     aktif BOOLEAN DEFAULT TRUE,
     sira INTEGER DEFAULT 0,
     olusturma_tarih TIMESTAMP DEFAULT NOW()
@@ -55,6 +55,9 @@ CREATE TABLE adisyonlar (
     toplam NUMERIC(10,2) DEFAULT 0,
     odeme_tipi VARCHAR(20) CHECK(odeme_tipi IS NULL OR odeme_tipi IN ('nakit', 'kart')),
     durum VARCHAR(20) DEFAULT 'acik' CHECK(durum IN ('acik', 'kapali', 'iptal')),
+    indirim NUMERIC(10,2) DEFAULT 0 CHECK(indirim >= 0),
+    ara_toplam NUMERIC(10,2) DEFAULT 0 CHECK(ara_toplam >= 0),
+    toplam NUMERIC(10,2) DEFAULT 0 CHECK(toplam >= 0),
     notlar TEXT
 );
 
@@ -63,9 +66,9 @@ CREATE TABLE adisyon_kalemleri (
     id SERIAL PRIMARY KEY,
     adisyon_id INTEGER NOT NULL REFERENCES adisyonlar(id) ON DELETE CASCADE,
     urun_id INTEGER NOT NULL REFERENCES urunler(id),
-    miktar INTEGER NOT NULL DEFAULT 1,
-    birim_fiyat NUMERIC(10,2) NOT NULL,
-    toplam NUMERIC(10,2) NOT NULL,
+    miktar INTEGER NOT NULL DEFAULT 1 CHECK(miktar > 0),
+    birim_fiyat NUMERIC(10,2) NOT NULL CHECK(birim_fiyat >= 0),
+    toplam NUMERIC(10,2) NOT NULL CHECK(toplam >= 0),
     ekleme_zamani TIMESTAMP DEFAULT NOW(),
     ekleyen_garson_id INTEGER REFERENCES garsonlar(id)
 );
@@ -75,7 +78,7 @@ CREATE TABLE gelir_gider (
     id SERIAL PRIMARY KEY,
     tip VARCHAR(10) NOT NULL CHECK(tip IN ('gelir', 'gider')),
     kategori VARCHAR(100),
-    miktar NUMERIC(10,2) NOT NULL,
+    miktar NUMERIC(10,2) NOT NULL CHECK(miktar > 0),
     aciklama TEXT,
     tarih TIMESTAMP NOT NULL DEFAULT NOW(),
     kullanici_id INTEGER REFERENCES garsonlar(id)
@@ -85,9 +88,13 @@ CREATE TABLE gelir_gider (
 CREATE INDEX idx_adisyonlar_masa ON adisyonlar(masa_id);
 CREATE INDEX idx_adisyonlar_durum ON adisyonlar(durum);
 CREATE INDEX idx_adisyonlar_tarih ON adisyonlar(baslangic);
+CREATE INDEX idx_adisyonlar_bitis ON adisyonlar(bitis);
 CREATE INDEX idx_adisyon_kalemleri_adisyon ON adisyon_kalemleri(adisyon_id);
 CREATE INDEX idx_urunler_kategori ON urunler(kategori_id);
 CREATE INDEX idx_gelir_gider_tarih ON gelir_gider(tarih);
+
+-- Partial unique index: aynı masada sadece 1 açık adisyon
+CREATE UNIQUE INDEX idx_adisyonlar_acik_masa ON adisyonlar(masa_id) WHERE durum = 'acik';
 
 -- Default veri
 INSERT INTO kategoriler (ad, sira) VALUES

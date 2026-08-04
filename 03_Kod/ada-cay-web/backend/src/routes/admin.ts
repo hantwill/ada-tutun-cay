@@ -27,11 +27,12 @@ adminRoutes.get('/dashboard', async (_req, res) => {
       bugun_satis_adet: bugunSatis.rows[0].adet,
     });
   } catch (e) {
+    console.error('Dashboard hatası:', e);
     res.status(500).json({ error: 'Sunucu hatası' });
   }
 });
 
-// Açık adisyonlar (masa masa)
+// Açık adisyonlar (LEFT JOIN garsonlar — garson silinirse de görünür)
 adminRoutes.get('/adisyonlar/acik', async (_req, res) => {
   try {
     const result = await query(`
@@ -41,26 +42,38 @@ adminRoutes.get('/adisyonlar/acik', async (_req, res) => {
              (SELECT COUNT(*) FROM adisyon_kalemleri WHERE adisyon_id = a.id) as kalem_sayisi
       FROM adisyonlar a
       JOIN masalar m ON a.masa_id = m.id
-      JOIN garsonlar g ON a.garson_id = g.id
+      LEFT JOIN garsonlar g ON a.garson_id = g.id
       WHERE a.durum = 'acik'
       ORDER BY a.baslangic
     `);
     res.json(result.rows);
   } catch (e) {
+    console.error('Açık adisyonlar hatası:', e);
     res.status(500).json({ error: 'Sunucu hatası' });
   }
 });
 
-// Tarih arası rapor
+// Tarih arası rapor — validation'lı
 adminRoutes.get('/rapor', async (req, res) => {
-  const { baslangic, bitis } = req.query;
+  const { baslangic, bitis } = req.query as { baslangic?: string; bitis?: string };
+  if (!baslangic || !bitis) {
+    return res.status(400).json({ error: 'baslangic ve bitis gerekli' });
+  }
+  const basDate = new Date(baslangic);
+  const bitDate = new Date(bitis);
+  if (Number.isNaN(basDate.getTime()) || Number.isNaN(bitDate.getTime())) {
+    return res.status(400).json({ error: 'Geçersiz tarih formatı' });
+  }
+  if (basDate > bitDate) {
+    return res.status(400).json({ error: 'baslangic bitis tarihinden sonra olamaz' });
+  }
   try {
     const satislar = await query(`
       SELECT a.id, a.masa_id, m.no as masa_no, g.ad as garson_ad,
              a.baslangic, a.bitis, a.toplam, a.odeme_tipi, a.indirim
       FROM adisyonlar a
       JOIN masalar m ON a.masa_id = m.id
-      JOIN garsonlar g ON a.garson_id = g.id
+      LEFT JOIN garsonlar g ON a.garson_id = g.id
       WHERE a.durum = 'kapali' 
         AND a.bitis::date BETWEEN $1 AND $2
       ORDER BY a.bitis
@@ -79,13 +92,20 @@ adminRoutes.get('/rapor', async (req, res) => {
 
     res.json({ satislar: satislar.rows, ozet: ozet.rows[0] });
   } catch (e) {
+    console.error('Rapor hatası:', e);
     res.status(500).json({ error: 'Sunucu hatası' });
   }
 });
 
-// Gelir/gider ekle
+// Gelir/gider ekle — validation'lı
 adminRoutes.post('/gelir-gider', async (req, res) => {
   const { tip, kategori, miktar, aciklama, kullanici_id } = req.body;
+  if (!tip || !['gelir', 'gider'].includes(tip)) {
+    return res.status(400).json({ error: 'tip gelic veya gider olmalı' });
+  }
+  if (!miktar || miktar <= 0) {
+    return res.status(400).json({ error: 'miktar pozitif olmalı' });
+  }
   try {
     await query(
       'INSERT INTO gelir_gider (tip, kategori, miktar, aciklama, kullanici_id) VALUES ($1, $2, $3, $4, $5)',
@@ -93,13 +113,17 @@ adminRoutes.post('/gelir-gider', async (req, res) => {
     );
     res.json({ success: true });
   } catch (e) {
+    console.error('Gelir-gider ekleme hatası:', e);
     res.status(500).json({ error: 'Sunucu hatası' });
   }
 });
 
 // Gelir/gider listesi
 adminRoutes.get('/gelir-gider', async (req, res) => {
-  const { baslangic, bitis } = req.query;
+  const { baslangic, bitis } = req.query as { baslangic?: string; bitis?: string };
+  if (!baslangic || !bitis) {
+    return res.status(400).json({ error: 'baslangic ve bitis gerekli' });
+  }
   try {
     const result = await query(`
       SELECT * FROM gelir_gider 
@@ -108,6 +132,7 @@ adminRoutes.get('/gelir-gider', async (req, res) => {
     `, [baslangic, bitis]);
     res.json(result.rows);
   } catch (e) {
+    console.error('Gelir-gider listesi hatası:', e);
     res.status(500).json({ error: 'Sunucu hatası' });
   }
 });
@@ -123,12 +148,19 @@ adminRoutes.get('/menu', async (_req, res) => {
     `);
     res.json(result.rows);
   } catch (e) {
+    console.error('Menü listesi hatası:', e);
     res.status(500).json({ error: 'Sunucu hatası' });
   }
 });
 
 adminRoutes.post('/menu', async (req, res) => {
   const { ad, kategori_id, fiyat } = req.body;
+  if (!ad || ad.trim() === '') {
+    return res.status(400).json({ error: 'Ürün adı gerekli' });
+  }
+  if (!fiyat || fiyat <= 0) {
+    return res.status(400).json({ error: 'Fiyat pozitif olmalı' });
+  }
   try {
     const result = await query(
       'INSERT INTO urunler (ad, kategori_id, fiyat) VALUES ($1, $2, $3) RETURNING id',
@@ -136,6 +168,7 @@ adminRoutes.post('/menu', async (req, res) => {
     );
     res.json({ id: result.rows[0].id, success: true });
   } catch (e) {
+    console.error('Menü ekleme hatası:', e);
     res.status(500).json({ error: 'Sunucu hatası' });
   }
 });
@@ -143,6 +176,12 @@ adminRoutes.post('/menu', async (req, res) => {
 adminRoutes.put('/menu/:id', async (req, res) => {
   const { id } = req.params;
   const { ad, kategori_id, fiyat, aktif } = req.body;
+  if (!ad || ad.trim() === '') {
+    return res.status(400).json({ error: 'Ürün adı gerekli' });
+  }
+  if (fiyat !== undefined && fiyat <= 0) {
+    return res.status(400).json({ error: 'Fiyat pozitif olmalı' });
+  }
   try {
     await query(
       'UPDATE urunler SET ad = $1, kategori_id = $2, fiyat = $3, aktif = $4 WHERE id = $5',
@@ -150,6 +189,7 @@ adminRoutes.put('/menu/:id', async (req, res) => {
     );
     res.json({ success: true });
   } catch (e) {
+    console.error('Menü güncelleme hatası:', e);
     res.status(500).json({ error: 'Sunucu hatası' });
   }
 });
@@ -160,6 +200,7 @@ adminRoutes.delete('/menu/:id', async (req, res) => {
     await query('UPDATE urunler SET aktif = false WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (e) {
+    console.error('Menü silme hatası:', e);
     res.status(500).json({ error: 'Sunucu hatası' });
   }
 });
