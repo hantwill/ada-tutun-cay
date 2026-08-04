@@ -8,7 +8,7 @@ created: 2026-08-04
 
 ## Faz 1: Temel Altyapı (1-2 hafta)
 - [x] Git repo init (local, /mnt/wd500/ada-tutun-cay)
-- [ ] Tauri + React proje init (Ada Tütün) — Rust kuruldu, Tauri CLI derleniyor
+- [x] Tauri + React projesi init (Ada Tütün)
 - [x] React PWA + Node.js proje init (Ada Çay Evi)
 - [x] Veritabanı şeması tasarla (SQLite + PostgreSQL)
 - [ ] Obsidian Vault yapılandır

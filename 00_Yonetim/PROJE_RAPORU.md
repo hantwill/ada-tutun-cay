@@ -121,7 +121,7 @@ gelir_gider (id, tip, miktar, kategori, aciklama, tarih)
 
 ### Faz 1: Temel Altyapı (1-2 hafta)
 - [x] Proje reposu oluştur (Git)
-- [ ] Tauri + React projesi init (Ada Tütün) — Rust kuruldu, Tauri CLI derleniyor
+- [x] Tauri + React projesi init (Ada Tütün)
 - [x] React PWA + Node.js projesi init (Ada Çay Evi)
 - [x] Veritabanı şeması tasarla ve uygula
 - [ ] Obsidian Vault yapılandır
