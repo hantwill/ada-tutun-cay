@@ -107,19 +107,6 @@ jobs:
         env:
           APPLE_SIGNING_IDENTITY: "-"
       
-      - name: Ad-hoc sign app bundle
-        run: |
-          APP_PATH="03_Kod/ada-tutun-desktop/src-tauri/target/release/bundle/macos/Ada Tütün.app"
-          codesign --force --deep --sign - "$APP_PATH"
-          codesign --verify --verbose=4 "$APP_PATH"
-      
-      - name: Create DMG
-        run: |
-          APP_PATH="03_Kod/ada-tutun-desktop/src-tauri/target/release/bundle/macos/Ada Tütün.app"
-          DMG_PATH="03_Kod/ada-tutun-desktop/src-tauri/target/release/bundle/dmg"
-          mkdir -p "$DMG_PATH"
-          hdiutil create -volname "Ada Tütün" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_PATH/Ada Tütün 0.1.0.dmg"
-      
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
