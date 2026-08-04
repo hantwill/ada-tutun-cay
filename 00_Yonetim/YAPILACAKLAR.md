@@ -7,10 +7,10 @@ created: 2026-08-04
 # ✅ YAPILACAKLAR LİSTESİ — Ada Tütün ve Çay
 
 ## Faz 1: Temel Altyapı (1-2 hafta)
-- [ ] Git repo init (local, /mnt/wd500/ada-tutun-cay)
-- [ ] Tauri + React proje init (Ada Tütün)
-- [ ] React PWA + Node.js proje init (Ada Çay Evi)
-- [ ] Veritabanı şeması tasarla (SQLite + PostgreSQL)
+- [x] Git repo init (local, /mnt/wd500/ada-tutun-cay)
+- [ ] Tauri + React proje init (Ada Tütün) — Rust kuruldu, Tauri CLI derleniyor
+- [x] React PWA + Node.js proje init (Ada Çay Evi)
+- [x] Veritabanı şeması tasarla (SQLite + PostgreSQL)
 - [ ] Obsidian Vault yapılandır
 - [ ] RAG sistemi kur (Qdrant index)
 - [ ] UI mockup çiz (Figma/Excalidraw)

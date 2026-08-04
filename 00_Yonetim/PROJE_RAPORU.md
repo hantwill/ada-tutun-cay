@@ -37,7 +37,7 @@
 ### 2.3 Özellikler
 
 #### Satış Görevlisi (Kasiyer)
-- [ ] Ürün satışı (barkod/tıklama ile)
+- [ ] Ürün satışı (barkod/tıklama ile) — Barkod okuyucu VAR ✅
 - [ ] Günlük satış özeti (kendi cirosu)
 - [ ] Basit POS arayüzü
 - [ ] Satış iade
@@ -52,8 +52,10 @@
 - [ ] Kullanıcı yönetimi (satış görevlisi ekle/sil)
 - [ ] Kategori yönetimi (tütün, nargile, kibrıt, vb.)
 - [ ] Stok uyarısı (kritik seviye)
-- [ ] Yedekleme (export/import)
+- [ ] Yedekleme (export/import) — Bulut yedek ✅
 - [ ] Dashboard (günlük özet grafikleri)
+
+> **Not:** Fiş yazıcı YOK. Vergi raporu Faz 2'de.
 
 ### 2.4 Veritabanı Şeması (Özet)
 
@@ -83,11 +85,13 @@ shiftler (id, kullanici_id, baslangic, bitis, acilis_tutar, kapanis_tutar)
 ### 3.2 Özellikler
 
 #### Garson (Telefon)
-- [ ] Adisyon aç (masa seç)
+- [ ] Adisyon aç (masa seç) — 15 masa ✅
 - [ ] Ürün ekle (çay, su, kahve, tatlı, vb.)
 - [ ] Adisyon kapat (nakit/kart seç)
 - [ ] Açık adisyonları gör
 - [ ] Masaya ürün ekle/çıkar
+
+> **Not:** Garson servis + ödeme garsona. Self servis YOK. QR menü YOK.
 
 #### Admin
 - [ ] Tüm açık adisyonları gör (masa masa)
@@ -116,10 +120,10 @@ gelir_gider (id, tip, miktar, kategori, aciklama, tarih)
 ## 4. YAPILACAKLAR LİSTESİ
 
 ### Faz 1: Temel Altyapı (1-2 hafta)
-- [ ] Proje reposu oluştur (Git)
-- [ ] Tauri + React projesi init (Ada Tütün)
-- [ ] React PWA + Node.js projesi init (Ada Çay Evi)
-- [ ] Veritabanı şeması tasarla ve uygula
+- [x] Proje reposu oluştur (Git)
+- [ ] Tauri + React projesi init (Ada Tütün) — Rust kuruldu, Tauri CLI derleniyor
+- [x] React PWA + Node.js projesi init (Ada Çay Evi)
+- [x] Veritabanı şeması tasarla ve uygula
 - [ ] Obsidian Vault yapılandır
 - [ ] RAG sistemi kur (doküman indexing)
 
@@ -220,18 +224,18 @@ Project:   /mnt/wd500/ada-tutun-cay/
 
 ---
 
-## 8. SORULAR / KARAR GEREKTİRENLER
+## 8. SORULAR / CEVAPLAR
 
-1. **Ada Tütün:** Barkod okuyucu olacak mı? (USB barkod scanner)
-2. **Ada Tütün:** Yazıcı gerekli mi? (fiş/yazı çıktısı)
-3. **Ada Çay Evi:** Kaç masa var?
-4. **Ada Çay Evi:** Self servis mi, garson mu?
-5. **Ada Çay Evi:** Online sipariş (QR kod menü) gerekli mi?
-6. **İkisi de:** Müşteri/vergi daires raporu gerekli mi?
-7. **İkisi de:** Bulut yedekleme mi, yerel yedek mi?
-8. **Donanım:** Mağazalarda PC/tablet var mı, yoksa tedarik edilecek mi?
-9. **Ağ:** İki mağaza aynı LAN'da mı?
-10. **Bütçe:** Donanım + yazılım bütçesi var mı?
+1. **Ada Tütün:** Barkod okuyucu olacak mı? → ✅ EVET
+2. **Ada Tütün:** Fiş yazıcı gerekli mi? → ❌ HAYIR
+3. **Ada Çay Evi:** Kaç masa var? → 15 masa
+4. **Ada Çay Evi:** Self servis mi, garson mu? → Garson servis, ödeme garsona
+5. **Ada Çay Evi:** Online sipariş (QR kod menü) gerekli mi? → ❌ HAYIR
+6. **İkisi de:** Vergi daires raporu gerekli mi? → Faz 2'de
+7. **İkisi de:** Bulut yedekleme mi, yerel yedek mi? → Bulut yedek
+8. **Donanım:** PC/tablet var mı? → Windows PC = server + Ada Tütün app (RAM yükseltme bekleniyor)
+9. **Ağ:** İki mağaza aynı LAN'da mı? → ✅ EVET, aynı LAN
+10. **Bütçe:** Bütçe var mı? → Her şey ücretsiz/kendi yapımı, hazır yazılım alınmayacak
 
 ---
 
