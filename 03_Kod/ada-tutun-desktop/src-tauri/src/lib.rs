@@ -97,7 +97,7 @@ pub struct ShiftGecmis {
     pub acilis_kasa: f64,
     pub kapanis_kasa: Option<f64>,
     pub toplam_satis: Option<f64>,
-    pub acilis_tarih: String,
+    pub baslangic: String,
     pub bitis: Option<String>,
     pub durum: String,
 }
@@ -926,7 +926,7 @@ fn get_shift_gecmis(db: tauri::State<DbState>) -> Result<Vec<ShiftGecmis>, Strin
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn.prepare(
         "SELECT s.id, k.ad, s.acilis_kasa, s.kapanis_kasa, s.toplam_satis,
-                s.acilis_tarih, s.bitis, s.durum
+                s.baslangic, s.bitis, s.durum
          FROM shiftler s JOIN kullanicilar k ON s.kullanici_id = k.id
          ORDER BY s.id DESC LIMIT 50"
     ).map_err(|e| e.to_string())?;
@@ -938,7 +938,7 @@ fn get_shift_gecmis(db: tauri::State<DbState>) -> Result<Vec<ShiftGecmis>, Strin
             acilis_kasa: row.get(2)?,
             kapanis_kasa: row.get(3)?,
             toplam_satis: row.get(4)?,
-            acilis_tarih: row.get(5)?,
+            baslangic: row.get(5)?,
             bitis: row.get(6)?,
             durum: row.get(7)?,
         })

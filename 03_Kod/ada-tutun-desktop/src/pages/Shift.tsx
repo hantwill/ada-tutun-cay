@@ -10,7 +10,7 @@ interface ShiftGecmisItem {
   acilis_kasa: number
   kapanis_kasa: number | null
   toplam_satis: number | null
-  acilis_tarih: string
+  baslangic: string
   bitis: string | null
   durum: string
 }
@@ -174,7 +174,7 @@ export default function Shift() {
                     <tr key={s.id} className="border-b hover:bg-gray-50">
                       <td className="py-2">#{s.id}</td>
                       <td>{s.kullanici_ad}</td>
-                      <td>{formatTarih(s.acilis_tarih)}</td>
+                      <td>{formatTarih(s.baslangic)}</td>
                       <td>{s.acilis_kasa.toFixed(2)} TL</td>
                       <td>{s.kapanis_kasa != null ? `${s.kapanis_kasa.toFixed(2)} TL` : '-'}</td>
                       <td>{s.toplam_satis != null ? `${s.toplam_satis.toFixed(2)} TL` : '-'}</td>
