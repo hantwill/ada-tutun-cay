@@ -118,9 +118,19 @@ export default function Admin() {
   useEffect(() => { if (sayfa === 'gelir-gider') yukleGelirGider() }, [sayfa, yukleGelirGider])
   useEffect(() => { if (sayfa === 'raporlar') yukleRapor() }, [sayfa, yukleRapor])
 
-  const indirCSV = () => {
+  const indirCSV = async () => {
     const API = import.meta.env.VITE_API_URL || ''
-    window.open(`${API}/api/admin/rapor/csv?baslangic=${raporBaslangic}&bitis=${raporBitis}`, '_blank')
+    const res = await fetch(`${API}/api/admin/rapor/csv?baslangic=${raporBaslangic}&bitis=${raporBitis}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) { mesajGoster('CSV indirilemedi'); return }
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `rapor_${raporBaslangic}_${raporBitis}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   // === DASHBOARD ===
@@ -131,12 +141,12 @@ export default function Admin() {
         {data && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {[
-              { label: 'Bugün Satış', val: `${data.bugun_satis.toFixed(2)} ₺`, color: 'text-amber-700' },
+              { label: 'Bugün Satış', val: `${Number(data.bugun_satis).toFixed(2)} ₺`, color: 'text-amber-700' },
               { label: 'Adisyon', val: data.bugun_adet, color: 'text-blue-700' },
               { label: 'Aktif', val: data.aktif_adisyon, color: 'text-green-700' },
               { label: 'Dolu Masa', val: `${data.dolu_masa}/${data.toplam_masa}`, color: 'text-orange-700' },
-              { label: 'Gelir', val: `${data.bugun_gelir.toFixed(2)} ₺`, color: 'text-green-700' },
-              { label: 'Gider', val: `${data.bugun_gider.toFixed(2)} ₺`, color: 'text-red-700' },
+              { label: 'Gelir', val: `${Number(data.bugun_gelir).toFixed(2)} ₺`, color: 'text-green-700' },
+              { label: 'Gider', val: `${Number(data.bugun_gider).toFixed(2)} ₺`, color: 'text-red-700' },
             ].map((c, i) => (
               <div key={i} className="bg-white rounded-xl p-4 sm:p-6 shadow">
                 <div className="text-xs sm:text-sm text-gray-500">{c.label}</div>
@@ -145,7 +155,7 @@ export default function Admin() {
             ))}
             <div className="bg-white rounded-xl p-4 sm:p-6 shadow col-span-2">
               <div className="text-xs sm:text-sm text-gray-500">Net</div>
-              <div className="text-lg sm:text-2xl font-bold text-gray-800">{(data.bugun_gelir - data.bugun_gider).toFixed(2)} ₺</div>
+              <div className="text-lg sm:text-2xl font-bold text-gray-800">{(Number(data.bugun_gelir) - Number(data.bugun_gider)).toFixed(2)} ₺</div>
             </div>
           </div>
         )}

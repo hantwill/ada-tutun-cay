@@ -70,6 +70,8 @@ export default function Masalar() {
 
   const masaSec = async (masa: Masa) => {
     setSeciliMasa(masa)
+    setAdisyon(null)   // eski adisyonu temizle
+    setKalemler([])    // eski kalemleri temizle
     try {
       const data = await apiGet(`/garson/masa/${masa.id}/adisyon`, token || undefined)
       setAdisyon(data.adisyon); setKalemler(data.kalemler || [])

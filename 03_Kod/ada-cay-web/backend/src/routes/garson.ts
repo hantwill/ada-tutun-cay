@@ -116,27 +116,47 @@ router.post('/adisyon/:id/urun-ekle', async (req, res) => {
   if (!urunId) {
     return res.status(400).json({ hata: 'urunId gerekli' });
   }
+  if (typeof miktar !== 'number' || miktar <= 0) {
+    return res.status(400).json({ hata: 'miktar 0\'dan büyük olmalı' });
+  }
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+    // Adisyon açık mı kontrol et
+    const adisyonCheck = await client.query('SELECT durum FROM adisyonlar WHERE id = $1', [adisyonId]);
+    if (adisyonCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ hata: 'Adisyon bulunamadı' });
+    }
+    if (adisyonCheck.rows[0].durum !== 'acik') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ hata: 'Kapalı adisyona ürün eklenemez' });
+    }
     // Ürünü getir
-    const urunResult = await pool.query('SELECT ad, fiyat FROM urunler WHERE id = $1 AND aktif = true', [urunId]);
+    const urunResult = await client.query('SELECT ad, fiyat FROM urunler WHERE id = $1 AND aktif = true', [urunId]);
     if (urunResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ hata: 'Ürün bulunamadı' });
     }
     const urun = urunResult.rows[0];
     const toplam = parseFloat(urun.fiyat) * miktar;
     // Adisyona ekle
-    const result = await pool.query(
+    const result = await client.query(
       'INSERT INTO adisyon_kalemleri (adisyon_id, urun_id, urun_ad, birim_fiyat, miktar, toplam) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
       [adisyonId, urunId, urun.ad, urun.fiyat, miktar, toplam]
     );
     // Adisyon toplamını güncelle
-    await pool.query(
+    await client.query(
       'UPDATE adisyonlar SET toplam = (SELECT COALESCE(SUM(toplam), 0) FROM adisyon_kalemleri WHERE adisyon_id = $1 AND durum != $2) WHERE id = $1',
       [adisyonId, 'iptal']
     );
+    await client.query('COMMIT');
     res.json(result.rows[0]);
-  } catch {
+  } catch (err: any) {
+    await client.query('ROLLBACK');
     res.status(500).json({ hata: 'Sunucu hatası' });
+  } finally {
+    client.release();
   }
 });
 
@@ -149,6 +169,14 @@ router.delete('/adisyon/kalem/:kalemId', async (req, res) => {
       return res.status(404).json({ hata: 'Kalem bulunamadı' });
     }
     const adisyonId = kalemResult.rows[0].adisyon_id;
+    // Adisyon açık mı kontrol et
+    const adisyonCheck = await pool.query('SELECT durum FROM adisyonlar WHERE id = $1', [adisyonId]);
+    if (adisyonCheck.rows.length === 0) {
+      return res.status(404).json({ hata: 'Adisyon bulunamadı' });
+    }
+    if (adisyonCheck.rows[0].durum !== 'acik') {
+      return res.status(400).json({ hata: 'Kapalı adisyonda işlem yapılamaz' });
+    }
     await pool.query("UPDATE adisyon_kalemleri SET durum = 'iptal' WHERE id = $1", [kalemId]);
     await pool.query(
       'UPDATE adisyonlar SET toplam = (SELECT COALESCE(SUM(toplam), 0) FROM adisyon_kalemleri WHERE adisyon_id = $1 AND durum != $2) WHERE id = $1',

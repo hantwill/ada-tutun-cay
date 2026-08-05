@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS urunler (
     id SERIAL PRIMARY KEY,
     ad VARCHAR(100) NOT NULL,
     kategori_id INTEGER REFERENCES kategoriler(id) ON DELETE SET NULL,
-    fiyat DECIMAL(10,2) NOT NULL DEFAULT 0,
+    fiyat DECIMAL(10,2) NOT NULL DEFAULT 0 CHECK (fiyat >= 0),
     aktif BOOLEAN DEFAULT true,
     olusturma_tarih TIMESTAMP DEFAULT NOW(),
     UNIQUE(ad, kategori_id)
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS adisyon_kalemleri (
     urun_id INTEGER NOT NULL REFERENCES urunler(id),
     urun_ad VARCHAR(100) NOT NULL,
     birim_fiyat DECIMAL(10,2) NOT NULL,
-    miktar INTEGER NOT NULL DEFAULT 1,
+    miktar INTEGER NOT NULL DEFAULT 1 CHECK (miktar > 0),
     toplam DECIMAL(10,2) NOT NULL,
     durum VARCHAR(20) DEFAULT 'siparis' CHECK (durum IN ('siparis', 'hazirlaniyor', 'hazir', 'servis', 'iptal')),
     ekleme_tarih TIMESTAMP DEFAULT NOW()
@@ -93,9 +93,10 @@ INSERT INTO kategoriler (ad, siralama) VALUES
     ('Atıştırmalıklar', 5)
 ON CONFLICT (ad) DO NOTHING;
 
--- Default admin (kullanici_ad: admin, şifre: admin123)
+-- Default admin (ilk açılışta backend rastgele şifre üretir, log'a yazar)
+-- Bu kayıt sadece DB boşsa eklenir, şifre_hash boş → backend ilk başlatmada doldurur
 INSERT INTO kullanicilar (kullanici_ad, ad, rol, sifre_hash) VALUES
-    ('admin', 'Yönetici', 'admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9')
+    ('admin', 'Yönetici', 'admin', 'PENDING_INIT')
 ON CONFLICT (kullanici_ad) DO NOTHING;
 
 -- Default masalar
