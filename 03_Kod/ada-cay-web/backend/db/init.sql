@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS urunler (
     kategori_id INTEGER REFERENCES kategoriler(id) ON DELETE SET NULL,
     fiyat DECIMAL(10,2) NOT NULL DEFAULT 0,
     aktif BOOLEAN DEFAULT true,
-    olusturma_tarih TIMESTAMP DEFAULT NOW()
+    olusturma_tarih TIMESTAMP DEFAULT NOW(),
+    UNIQUE(ad, kategori_id)
 );
 
 -- Adisyonlar
@@ -87,12 +88,12 @@ INSERT INTO kategoriler (ad, siralama) VALUES
     ('Soğuk İçecekler', 3),
     ('Tatlılar', 4),
     ('Atıştırmalıklar', 5)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (ad) DO NOTHING;
 
 -- Default admin (kullanici_ad: admin, şifre: admin123)
 INSERT INTO kullanicilar (kullanici_ad, ad, rol, sifre_hash) VALUES
     ('admin', 'Yönetici', 'admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (kullanici_ad) DO NOTHING;
 
 -- Default masalar
 INSERT INTO masalar (numara, ad, kapasite) VALUES
@@ -106,7 +107,7 @@ INSERT INTO masalar (numara, ad, kapasite) VALUES
     ('8', 'Terrace 1', 6),
     ('9', 'Terrace 2', 6),
     ('10', 'VIP', 8)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (numara) DO NOTHING;
 
 -- Default ürünler
 INSERT INTO urunler (ad, kategori_id, fiyat) VALUES
@@ -125,4 +126,4 @@ INSERT INTO urunler (ad, kategori_id, fiyat) VALUES
     ('Künefe', 4, 70.00),
     ('Kuru Pasta', 5, 20.00),
     ('Poğaça', 5, 15.00)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (ad, kategori_id) DO NOTHING;
