@@ -12,56 +12,48 @@ export default function App() {
 
   const menuAdmin = [
     { id: 'dashboard', icon: '📊', label: 'Dashboard' },
-    { id: 'garsonlar', icon: '👥', label: 'Garsonlar' },
+    { id: 'garsonlar', icon: '👥', label: 'Kullanıcılar' },
+    { id: 'urunler', icon: '🍽️', label: 'Ürünler' },
+    { id: 'gelir-gider', icon: '💰', label: 'Gelir/Gider' },
+    { id: 'raporlar', icon: '📋', label: 'Raporlar' },
   ]
 
+  const isGarson = kullanici.rol === 'garson'
+
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
-      <div className="w-60 bg-amber-900 text-white flex flex-col">
-        <div className="p-4 border-b border-amber-700">
-          <h1 className="text-xl font-bold">🍵 Ada Çay Evi</h1>
-          <p className="text-sm text-amber-300">{kullanici.ad}</p>
+    <div className="flex flex-col md:flex-row h-screen bg-gray-100">
+      {/* Sidebar — mobile'da üst bar, desktop'ta sol panel */}
+      <div className="md:w-60 bg-amber-900 text-white flex md:flex-col flex-row items-center justify-between md:justify-start md:h-full">
+        <div className="p-3 md:p-4 md:border-b md:border-amber-700 flex-shrink-0">
+          <h1 className="text-base md:text-xl font-bold whitespace-nowrap">🍵 Ada Çay Evi</h1>
+          <p className="text-xs md:text-sm text-amber-300 hidden md:block">{kullanici.ad}</p>
         </div>
 
-        <div className="flex-1 p-2">
-          {kullanici.rol === 'garson' && (
-            <button
-              onClick={() => setSayfa('masalar')}
-              className={`w-full text-left px-4 py-3 rounded-lg mb-1 transition ${
+        <div className="flex md:flex-1 md:flex-col md:p-2 flex-row gap-1 md:gap-0">
+          {isGarson && (
+            <button onClick={() => setSayfa('masalar')}
+              className={`px-3 py-2 md:px-4 md:py-3 rounded-lg md:mb-1 transition text-sm whitespace-nowrap ${
                 sayfa === 'masalar' ? 'bg-amber-600' : 'hover:bg-amber-800'
-              }`}
-            >
-              🍽️ Masalar
-            </button>
+              }`}>🍽️ <span className="md:inline hidden">Masalar</span></button>
           )}
-          {kullanici.rol === 'admin' && menuAdmin.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setSayfa(m.id)}
-              className={`w-full text-left px-4 py-3 rounded-lg mb-1 transition ${
+          {!isGarson && menuAdmin.map((m) => (
+            <button key={m.id} onClick={() => setSayfa(m.id)}
+              className={`px-3 py-2 md:px-4 md:py-3 rounded-lg md:mb-1 transition text-sm whitespace-nowrap ${
                 sayfa === m.id ? 'bg-amber-600' : 'hover:bg-amber-800'
-              }`}
-            >
-              {m.icon} {m.label}
-            </button>
+              }`}>{m.icon} <span className="md:inline hidden">{m.label}</span></button>
           ))}
         </div>
 
-        <div className="p-2 border-t border-amber-700">
-          <button
-            onClick={logout}
-            className="w-full text-left px-4 py-3 rounded-lg hover:bg-red-800 transition"
-          >
-            🚪 Çıkış
-          </button>
+        <div className="md:p-2 md:border-t md:border-amber-700 flex-shrink-0">
+          <button onClick={logout}
+            className="px-3 py-2 md:px-4 md:py-3 rounded-lg hover:bg-red-800 transition text-sm whitespace-nowrap">🚪 <span className="md:inline hidden">Çıkış</span></button>
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {kullanici.rol === 'garson' && sayfa === 'masalar' && <Masalar />}
-        {kullanici.rol === 'admin' && <Admin />}
+        {isGarson && sayfa === 'masalar' && <Masalar />}
+        {!isGarson && <Admin />}
       </div>
     </div>
   )

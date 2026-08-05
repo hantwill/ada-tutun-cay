@@ -44,7 +44,7 @@ router.get('/dashboard', async (_req, res) => {
 router.get('/garsonlar', async (_req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, telefon, ad, rol, aktif, olusturma_tarih FROM kullanicilar ORDER BY id'
+      'SELECT id, kullanici_ad, ad, rol, aktif, olusturma_tarih FROM kullanicilar ORDER BY id'
     );
     res.json(result.rows);
   } catch {
@@ -54,19 +54,19 @@ router.get('/garsonlar', async (_req, res) => {
 
 // Garson ekle
 router.post('/garsonlar', async (req, res) => {
-  const { telefon, ad, rol, sifre } = req.body;
-  if (!telefon || !ad || !sifre) {
-    return res.status(400).json({ hata: 'telefon, ad ve sifre gerekli' });
+  const { kullanici_ad, ad, rol, sifre } = req.body;
+  if (!kullanici_ad || !ad || !sifre) {
+    return res.status(400).json({ hata: 'kullanici_ad, ad ve sifre gerekli' });
   }
   try {
     const result = await pool.query(
-      'INSERT INTO kullanicilar (telefon, ad, rol, sifre_hash) VALUES ($1, $2, $3, $4) RETURNING id, telefon, ad, rol, aktif, olusturma_tarih',
-      [telefon, ad, rol || 'garson', sha256Hash(sifre)]
+      'INSERT INTO kullanicilar (kullanici_ad, ad, rol, sifre_hash) VALUES ($1, $2, $3, $4) RETURNING id, kullanici_ad, ad, rol, aktif, olusturma_tarih',
+      [kullanici_ad, ad, rol || 'garson', sha256Hash(sifre)]
     );
     res.json(result.rows[0]);
   } catch (err: any) {
     if (err.code === '23505') {
-      return res.status(400).json({ hata: 'Bu telefon numarası zaten kayıtlı' });
+      return res.status(400).json({ hata: 'Bu kullanıcı adı zaten kayıtlı' });
     }
     res.status(500).json({ hata: 'Sunucu hatası' });
   }
@@ -207,6 +207,71 @@ router.post('/gelir-gider', async (req, res) => {
       [tip, kategori, miktar, aciklama]
     );
     res.json(result.rows[0]);
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+// Gelir/gider sil
+router.delete('/gelir-gider/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    await pool.query('DELETE FROM gelir_gider WHERE id = $1', [id]);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+// CSV/Excel export
+router.get('/rapor/csv', async (req, res) => {
+  const baslangic = req.query.baslangic as string;
+  const bitis = req.query.bitis as string;
+  if (!baslangic || !bitis) {
+    return res.status(400).json({ hata: 'baslangic ve bitis gerekli' });
+  }
+  try {
+    const adisyonlar = await pool.query(
+      `SELECT a.id, a.acilis_tarih, a.kapanis_tarih, k.ad as garson_ad, m.numara as masa_numara,
+              a.toplam, a.odeme_tipi, a.durum
+       FROM adisyonlar a
+       JOIN kullanicilar k ON a.garson_id = k.id
+       JOIN masalar m ON a.masa_id = m.id
+       WHERE date(a.kapanis_tarih) BETWEEN date($1) AND date($2)
+       AND a.durum = 'kapali'
+       ORDER BY a.kapanis_tarih DESC`,
+      [baslangic, bitis]
+    );
+    const gelirGider = await pool.query(
+      `SELECT * FROM gelir_gider WHERE date(tarih) BETWEEN date($1) AND date($2) ORDER BY tarih DESC`,
+      [baslangic, bitis]
+    );
+
+    // CSV — UTF-8 BOM ile (Excel Türkçe destek)
+    let csv = '\u{FEFF}';
+    csv += 'Tip;ID;Tarih;Garson/Kategori;Masa;Aciklama;Toplam;Odeme;Durum\n';
+
+    for (const a of adisyonlar.rows) {
+      const tarih = new Date(a.kapanis_tarih).toLocaleString('tr-TR');
+      csv += `Adisyon;${a.id};${tarih};${a.garson_ad};${a.masa_numara};;${a.toplam};${a.odeme_tipi};${a.durum}\n`;
+    }
+
+    for (const g of gelirGider.rows) {
+      const tarih = new Date(g.tarih).toLocaleString('tr-TR');
+      csv += `${g.tip};${g.id};${tarih};${g.kategori || ''};;${g.aciklama || ''};${g.miktar};;\n`;
+    }
+
+    // Toplamlar
+    const satisToplam = adisyonlar.rows.reduce((s, a) => s + parseFloat(a.toplam), 0);
+    const gelirToplam = gelirGider.rows.filter((g) => g.tip === 'gelir').reduce((s, g) => s + parseFloat(g.miktar), 0);
+    const giderToplam = gelirGider.rows.filter((g) => g.tip === 'gider').reduce((s, g) => s + parseFloat(g.miktar), 0);
+
+    csv += `\n;;Toplam Satis:;${satisToplam.toFixed(2)};;;Toplam Gelir:;${gelirToplam.toFixed(2)};;\n`;
+    csv += `;;;Net:;${(satisToplam + gelirToplam - giderToplam).toFixed(2)};;;Toplam Gider:;${giderToplam.toFixed(2)};;\n`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="rapor_${baslangic}_${bitis}.csv"`);
+    res.send(csv);
   } catch {
     res.status(500).json({ hata: 'Sunucu hatası' });
   }

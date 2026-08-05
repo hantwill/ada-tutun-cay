@@ -21,6 +21,7 @@ const pool = new pg.Pool({
 export async function initDB() {
   const client = await pool.connect();
   try {
+    // Tablolar yoksa oluştur, varsa dokunma
     const sql = readFileSync(join(__dirname, 'init.sql'), 'utf-8');
     await client.query(sql);
     console.log('✅ DB migration tamam');

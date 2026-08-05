@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 interface Kullanici {
   id: number
-  telefon: string
+  kullanici_ad: string
   ad: string
   rol: 'admin' | 'garson'
 }
@@ -50,7 +50,7 @@ export const useStore = create<AppStore>((set) => ({
   setSayfa: (s) => set({ sayfa: s }),
 }))
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API = import.meta.env.VITE_API_URL || ''
 
 export async function apiGet(path: string, token?: string) {
   const res = await fetch(`${API}/api${path}`, {

@@ -4,7 +4,7 @@
 -- Garsonlar / Adminler
 CREATE TABLE IF NOT EXISTS kullanicilar (
     id SERIAL PRIMARY KEY,
-    telefon VARCHAR(20) UNIQUE NOT NULL,
+    kullanici_ad VARCHAR(50) UNIQUE NOT NULL,
     ad VARCHAR(100) NOT NULL,
     rol VARCHAR(20) NOT NULL DEFAULT 'garson' CHECK (rol IN ('admin', 'garson')),
     sifre_hash VARCHAR(255) NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS kullanicilar (
 -- Kategoriler
 CREATE TABLE IF NOT EXISTS kategoriler (
     id SERIAL PRIMARY KEY,
-    ad VARCHAR(100) NOT NULL,
+    ad VARCHAR(100) UNIQUE NOT NULL,
     siralama INTEGER DEFAULT 0
 );
 
@@ -89,9 +89,9 @@ INSERT INTO kategoriler (ad, siralama) VALUES
     ('Atıştırmalıklar', 5)
 ON CONFLICT DO NOTHING;
 
--- Default admin (telefon: 5550000000, şifre: admin123)
-INSERT INTO kullanicilar (telefon, ad, rol, sifre_hash) VALUES
-    ('5550000000', 'Yönetici', 'admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9')
+-- Default admin (kullanici_ad: admin, şifre: admin123)
+INSERT INTO kullanicilar (kullanici_ad, ad, rol, sifre_hash) VALUES
+    ('admin', 'Yönetici', 'admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9')
 ON CONFLICT DO NOTHING;
 
 -- Default masalar

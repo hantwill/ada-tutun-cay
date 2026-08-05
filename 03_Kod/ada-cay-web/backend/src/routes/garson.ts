@@ -5,24 +5,24 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
 
-// Garson login (telefon + şifre) — auth gerektirmez
+// Garson login (kullanici_ad + şifre) — auth gerektirmez
 router.post('/login', async (req, res) => {
-  const { telefon, sifre } = req.body;
-  if (!telefon || !sifre) {
-    return res.status(400).json({ hata: 'Telefon ve şifre gerekli' });
+  const { kullanici_ad, sifre } = req.body;
+  if (!kullanici_ad || !sifre) {
+    return res.status(400).json({ hata: 'Kullanıcı adı ve şifre gerekli' });
   }
   try {
     const result = await pool.query(
-      'SELECT id, telefon, ad, rol FROM kullanicilar WHERE telefon = $1 AND sifre_hash = $2 AND aktif = true',
-      [telefon, sha256Hash(sifre)]
+      'SELECT id, kullanici_ad, ad, rol FROM kullanicilar WHERE kullanici_ad = $1 AND sifre_hash = $2 AND aktif = true',
+      [kullanici_ad, sha256Hash(sifre)]
     );
     if (result.rows.length === 0) {
-      return res.status(401).json({ hata: 'Hatalı telefon veya şifre' });
+      return res.status(401).json({ hata: 'Hatalı kullanıcı adı veya şifre' });
     }
     const user = result.rows[0];
-    const token = generateToken({ id: user.id, telefon: user.telefon, ad: user.ad, rol: user.rol });
+    const token = generateToken({ id: user.id, kullanici_ad: user.kullanici_ad, ad: user.ad, rol: user.rol });
     res.json({ token, kullanici: user });
-  } catch (err) {
+  } catch {
     res.status(500).json({ hata: 'Sunucu hatası' });
   }
 });
