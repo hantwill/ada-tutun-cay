@@ -1,231 +1,199 @@
 import { Router } from 'express';
-import { query } from '../db/index.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { pool } from '../db.js';
+import { sha256Hash, generateToken } from '../auth.js';
 
-export const garsonRoutes = Router();
+const router = Router();
 
-// Login — SHA256 (Faz 3'de bcrypt/argon2'ye geçilecek)
-garsonRoutes.post('/login', async (req, res) => {
-  const { kullanici_ad, sifre } = req.body;
-  if (!kullanici_ad || !sifre) {
-    return res.status(400).json({ error: 'Kullanıcı ad ve şifre gerekli' });
+// Garson login (telefon + şifre)
+router.post('/login', async (req, res) => {
+  const { telefon, sifre } = req.body;
+  if (!telefon || !sifre) {
+    return res.status(400).json({ hata: 'Telefon ve şifre gerekli' });
   }
   try {
-    const crypto = await import('node:crypto');
-    const sifreHash = crypto.createHash('sha256').update(sifre).digest('hex');
-    
-    const result = await query(
-      'SELECT id, kullanici_ad, ad, rol FROM garsonlar WHERE kullanici_ad = $1 AND sifre_hash = $2 AND aktif = true',
-      [kullanici_ad, sifreHash]
+    const result = await pool.query(
+      'SELECT id, telefon, ad, rol FROM kullanicilar WHERE telefon = $1 AND sifre_hash = $2 AND aktif = true',
+      [telefon, sha256Hash(sifre)]
     );
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Hatalı giriş' });
+      return res.status(401).json({ hata: 'Hatalı telefon veya şifre' });
     }
-    // Token: SHA256 imzalı (Faz 3'de JWT'ye geçilecek)
     const user = result.rows[0];
-    const payload = JSON.stringify({ id: user.id, rol: user.rol, ad: user.ad });
-    const payload64 = Buffer.from(payload).toString('base64');
-    const secret = process.env.JWT_SECRET || 'dev_secret';
-    const sig = crypto.createHmac('sha256', secret).update(payload64).digest('hex');
-    const token = `${payload64}.${sig}`;
-    res.json({ ...user, token });
-  } catch (e) {
-    console.error('Login hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
+    const token = generateToken({ id: user.id, telefon: user.telefon, ad: user.ad, rol: user.rol });
+    res.json({ token, kullanici: user });
+  } catch (err) {
+    res.status(500).json({ hata: 'Sunucu hatası' });
   }
 });
 
 // Tüm masalar
-garsonRoutes.get('/masalar', authMiddleware, async (_req, res) => {
+router.get('/masalar', async (_req, res) => {
   try {
-    const result = await query('SELECT * FROM masalar WHERE aktif = true ORDER BY no');
+    const result = await pool.query('SELECT * FROM masalar ORDER BY numara');
     res.json(result.rows);
-  } catch (e) {
-    console.error('Masalar hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
   }
 });
 
-// Menü (aktif ürünler)
-garsonRoutes.get('/menu', authMiddleware, async (_req, res) => {
+// Masa adisyonu (açık adisyon varsa getir, yoksa null)
+router.get('/masa/:id/adisyon', async (req, res) => {
+  const masaId = parseInt(req.params.id);
   try {
-    const result = await query(`
-      SELECT u.id, u.ad, u.fiyat, k.ad as kategori 
-      FROM urunler u 
-      LEFT JOIN kategoriler k ON u.kategori_id = k.id 
-      WHERE u.aktif = true 
-      ORDER BY k.sira, u.sira
-    `);
-    res.json(result.rows);
-  } catch (e) {
-    console.error('Menü hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
-  }
-});
-
-// Adisyon aç — transaction ile
-garsonRoutes.post('/adisyon/ac', authMiddleware, async (req, res) => {
-  const { masa_id, garson_id } = req.body;
-  if (!masa_id || !garson_id) {
-    return res.status(400).json({ error: 'masa_id ve garson_id gerekli' });
-  }
-  try {
-    // Transaction: atomik adisyon açma
-    const result = await query(
-      `INSERT INTO adisyonlar (masa_id, garson_id)
-       SELECT $1, $2
-       WHERE NOT EXISTS (
-         SELECT 1 FROM adisyonlar WHERE masa_id = $1 AND durum = 'acik'
-       )
-       RETURNING id`,
-      [masa_id, garson_id]
+    const adisyonResult = await pool.query(
+      'SELECT * FROM adisyonlar WHERE masa_id = $1 AND durum = $2 ORDER BY id DESC LIMIT 1',
+      [masaId, 'acik']
     );
-    if (result.rows.length === 0) {
-      // Zaten açık adisyon var
-      const existing = await query(
-        'SELECT id FROM adisyonlar WHERE masa_id = $1 AND durum = $2',
-        [masa_id, 'acik']
-      );
-      return res.json({ adisyon_id: existing.rows[0].id, message: 'Zaten açık adisyon var' });
+    if (adisyonResult.rows.length === 0) {
+      return res.json({ adisyon: null, kalemler: [] });
     }
-    await query('UPDATE masalar SET durum = $1 WHERE id = $2', ['dolu', masa_id]);
-    res.json({ adisyon_id: result.rows[0].id });
-  } catch (e) {
-    console.error('Adisyon açma hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
-  }
-});
-
-// Adisyona ürün ekle — validation + transaction
-garsonRoutes.post('/adisyon/:id/ekle', authMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const { urun_id, miktar, garson_id } = req.body;
-  
-  // Input validation
-  if (!urun_id || !miktar || miktar < 1 || !Number.isInteger(miktar)) {
-    return res.status(400).json({ error: 'Geçersiz miktar veya urun_id' });
-  }
-  try {
-    // Adisyon açık mı kontrol
-    const adisyon = await query('SELECT id FROM adisyonlar WHERE id = $1 AND durum = $2', [id, 'acik']);
-    if (adisyon.rows.length === 0) {
-      return res.status(400).json({ error: 'Adisyon kapalı veya bulunamadı' });
-    }
-    
-    const urun = await query('SELECT fiyat FROM urunler WHERE id = $1 AND aktif = true', [urun_id]);
-    if (urun.rows.length === 0) return res.status(404).json({ error: 'Ürün bulunamadı' });
-    
-    const fiyat = parseFloat(urun.rows[0].fiyat);
-    // Float düzeltme: Math.round
-    const toplam = Math.round((fiyat * miktar) * 100) / 100;
-    
-    await query(
-      'INSERT INTO adisyon_kalemleri (adisyon_id, urun_id, miktar, birim_fiyat, toplam, ekleyen_garson_id) VALUES ($1, $2, $3, $4, $5, $6)',
-      [id, urun_id, miktar, fiyat, toplam, garson_id]
+    const adisyon = adisyonResult.rows[0];
+    const kalemlerResult = await pool.query(
+      'SELECT * FROM adisyon_kalemleri WHERE adisyon_id = $1 AND durum != $2 ORDER BY ekleme_tarih',
+      [adisyon.id, 'iptal']
     );
-    
-    // Ara toplam güncelle
-    await query(
-      'UPDATE adisyonlar SET ara_toplam = (SELECT COALESCE(SUM(toplam), 0) FROM adisyon_kalemleri WHERE adisyon_id = $1) WHERE id = $1',
-      [id]
-    );
-    
-    res.json({ success: true, toplam });
-  } catch (e) {
-    console.error('Ürün ekleme hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
+    res.json({ adisyon, kalemler: kalemlerResult.rows });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
   }
 });
 
-// Adisyon kapat — validation + transaction
-garsonRoutes.post('/adisyon/:id/kapat', authMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const { odeme_tipi, indirim } = req.body;
-  
-  // Validation
-  if (!odeme_tipi || !['nakit', 'kart'].includes(odeme_tipi)) {
-    return res.status(400).json({ error: 'Geçersiz ödeme tipi (nakit/kart)' });
+// Adisyon aç
+router.post('/adisyon/ac', async (req, res) => {
+  const { masaId, garsonId } = req.body;
+  if (!masaId || !garsonId) {
+    return res.status(400).json({ hata: 'masaId ve garsonId gerekli' });
   }
-  const ind = Number(indirim) || 0;
-  if (ind < 0) {
-    return res.status(400).json({ error: 'İndirim negatif olamaz' });
-  }
-  
   try {
-    const result = await query('SELECT ara_toplam FROM adisyonlar WHERE id = $1 AND durum = $2', [id, 'acik']);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Açık adisyon yok' });
-    
-    const araToplam = parseFloat(result.rows[0].ara_toplam);
-    if (ind > araToplam) {
-      return res.status(400).json({ error: 'İndirim ara toplamdan büyük olamaz' });
-    }
-    const toplam = Math.round((araToplam - ind) * 100) / 100;
-    
-    const updateResult = await query(
-      'UPDATE adisyonlar SET durum = $1, odeme_tipi = $2, indirim = $3, toplam = $4, bitis = NOW() WHERE id = $5 AND durum = $6',
-      ['kapali', odeme_tipi, ind, toplam, id, 'acik']
-    );
-    if (updateResult.rowCount === 0) {
-      return res.status(409).json({ error: 'Adisyon zaten kapatılmış' });
-    }
-    
-    // Masa durumunu güncelle — sadece açık adisyon yoksa boşalt
-    const masa = await query('SELECT masa_id FROM adisyonlar WHERE id = $1', [id]);
-    if (masa.rows.length > 0) {
-      await query(
-        `UPDATE masalar SET durum = 'bos' 
-         WHERE id = $1 AND NOT EXISTS (
-           SELECT 1 FROM adisyonlar WHERE masa_id = $1 AND durum = 'acik'
-         )`,
-        [masa.rows[0].masa_id]
-      );
-    }
-    
-    res.json({ success: true, toplam });
-  } catch (e) {
-    console.error('Adisyon kapatma hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
-  }
-});
-
-// Adisyon detayı
-garsonRoutes.get('/adisyon/:id', authMiddleware, async (req, res) => {
-  const { id } = req.params;
-  try {
-    const adisyon = await query(`
-      SELECT a.*, m.no as masa_no, m.ad as masa_ad 
-      FROM adisyonlar a 
-      JOIN masalar m ON a.masa_id = m.id 
-      WHERE a.id = $1
-    `, [id]);
-    const kalemler = await query(`
-      SELECT ak.*, u.ad as urun_ad 
-      FROM adisyon_kalemleri ak 
-      JOIN urunler u ON ak.urun_id = u.id 
-      WHERE ak.adisyon_id = $1
-      ORDER BY ak.ekleme_zamani
-    `, [id]);
-    res.json({ adisyon: adisyon.rows[0], kalemler: kalemler.rows });
-  } catch (e) {
-    console.error('Adisyon detay hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
-  }
-});
-
-// Masanın açık adisyonu
-garsonRoutes.get('/masa/:id/adisyon', authMiddleware, async (req, res) => {
-  const { id } = req.params;
-  try {
-    const result = await query(
+    // Açık adisyon var mı kontrol
+    const existing = await pool.query(
       'SELECT id FROM adisyonlar WHERE masa_id = $1 AND durum = $2',
-      [id, 'acik']
+      [masaId, 'acik']
     );
-    if (result.rows.length === 0) {
-      return res.json({ adisyon_id: null });
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ hata: 'Bu masada zaten açık adisyon var', adisyonId: existing.rows[0].id });
     }
-    res.json({ adisyon_id: result.rows[0].id });
-  } catch (e) {
-    console.error('Masa adisyon hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
+    // Yeni adisyon aç
+    const result = await pool.query(
+      'INSERT INTO adisyonlar (masa_id, garson_id, durum) VALUES ($1, $2, $3) RETURNING *',
+      [masaId, garsonId, 'acik']
+    );
+    // Masayı dolu yap
+    await pool.query("UPDATE masalar SET durum = 'dolu', guncelleme_tarih = NOW() WHERE id = $1", [masaId]);
+    res.json(result.rows[0]);
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
   }
 });
+
+// Adisyona ürün ekle
+router.post('/adisyon/:id/urun-ekle', async (req, res) => {
+  const adisyonId = parseInt(req.params.id);
+  const { urunId, miktar = 1 } = req.body;
+  if (!urunId) {
+    return res.status(400).json({ hata: 'urunId gerekli' });
+  }
+  try {
+    // Ürünü getir
+    const urunResult = await pool.query('SELECT ad, fiyat FROM urunler WHERE id = $1 AND aktif = true', [urunId]);
+    if (urunResult.rows.length === 0) {
+      return res.status(404).json({ hata: 'Ürün bulunamadı' });
+    }
+    const urun = urunResult.rows[0];
+    const toplam = parseFloat(urun.fiyat) * miktar;
+    // Adisyona ekle
+    const result = await pool.query(
+      'INSERT INTO adisyon_kalemleri (adisyon_id, urun_id, urun_ad, birim_fiyat, miktar, toplam) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [adisyonId, urunId, urun.ad, urun.fiyat, miktar, toplam]
+    );
+    // Adisyon toplamını güncelle
+    await pool.query(
+      'UPDATE adisyonlar SET toplam = (SELECT COALESCE(SUM(toplam), 0) FROM adisyon_kalemleri WHERE adisyon_id = $1 AND durum != $2) WHERE id = $1',
+      [adisyonId, 'iptal']
+    );
+    res.json(result.rows[0]);
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+// Adisyon kalemi iptal
+router.delete('/adisyon/kalem/:kalemId', async (req, res) => {
+  const kalemId = parseInt(req.params.kalemId);
+  try {
+    const kalemResult = await pool.query('SELECT adisyon_id FROM adisyon_kalemleri WHERE id = $1', [kalemId]);
+    if (kalemResult.rows.length === 0) {
+      return res.status(404).json({ hata: 'Kalem bulunamadı' });
+    }
+    const adisyonId = kalemResult.rows[0].adisyon_id;
+    await pool.query("UPDATE adisyon_kalemleri SET durum = 'iptal' WHERE id = $1", [kalemId]);
+    await pool.query(
+      'UPDATE adisyonlar SET toplam = (SELECT COALESCE(SUM(toplam), 0) FROM adisyon_kalemleri WHERE adisyon_id = $1 AND durum != $2) WHERE id = $1',
+      [adisyonId, 'iptal']
+    );
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+// Adisyon kapat (ödeme)
+router.post('/adisyon/:id/kapat', async (req, res) => {
+  const adisyonId = parseInt(req.params.id);
+  const { odemeTipi } = req.body;
+  if (!odemeTipi) {
+    return res.status(400).json({ hata: 'odemeTipi gerekli' });
+  }
+  try {
+    // Adisyon toplamını getir
+    const adisyonResult = await pool.query('SELECT masa_id, toplam FROM adisyonlar WHERE id = $1 AND durum = $2', [adisyonId, 'acik']);
+    if (adisyonResult.rows.length === 0) {
+      return res.status(404).json({ hata: 'Açık adisyon bulunamadı' });
+    }
+    const { masa_id, toplam } = adisyonResult.rows[0];
+    // Adisyonu kapat
+    await pool.query(
+      "UPDATE adisyonlar SET durum = 'kapali', kapanis_tarih = NOW(), odeme_tipi = $1 WHERE id = $2",
+      [odemeTipi, adisyonId]
+    );
+    // Masayı boşalt
+    await pool.query("UPDATE masalar SET durum = 'bos', guncelleme_tarih = NOW() WHERE id = $1", [masa_id]);
+    // Gelir kaydet
+    await pool.query(
+      "INSERT INTO gelir_gider (tip, kategori, miktar, aciklama) VALUES ('gelir', 'Adisyon', $1, $2)",
+      [toplam, `Adisyon #${adisyonId}`]
+    );
+    res.json({ ok: true, toplam });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+// Tüm ürünler (kategoriye göre)
+router.get('/urunler', async (req, res) => {
+  const kategoriId = req.query.kategori as string;
+  try {
+    let query = 'SELECT u.*, k.ad as kategori_ad FROM urunler u LEFT JOIN kategoriler k ON u.kategori_id = k.id WHERE u.aktif = true ORDER BY u.ad';
+    let params: any[] = [];
+    if (kategoriId) {
+      query = 'SELECT u.*, k.ad as kategori_ad FROM urunler u LEFT JOIN kategoriler k ON u.kategori_id = k.id WHERE u.aktif = true AND u.kategori_id = $1 ORDER BY u.ad';
+      params = [kategoriId];
+    }
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+// Kategoriler
+router.get('/kategoriler', async (_req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM kategoriler ORDER BY siralama');
+    res.json(result.rows);
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+export { router as garsonRoutes };

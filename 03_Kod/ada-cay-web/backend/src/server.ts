@@ -3,6 +3,7 @@ import http from 'node:http';
 import cors from 'cors';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
+import { pool, initDB } from './db.js';
 import { garsonRoutes } from './routes/garson.js';
 import { adminRoutes } from './routes/admin.js';
 import { authMiddleware, roleMiddleware } from './middleware/auth.js';
@@ -12,12 +13,8 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// CORS — CORS_ORIGIN zorunlu
-const corsOrigin = process.env.CORS_ORIGIN;
-if (!corsOrigin) {
-  console.error('HATA: CORS_ORIGIN env degiskeni tanimli degil!');
-  process.exit(1);
-}
+// CORS
+const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
 
 const io = new Server(server, {
   cors: { origin: corsOrigin, credentials: false }
@@ -42,7 +39,6 @@ io.use((socket, next) => {
   if (!token) {
     return next(new Error('Token yok'));
   }
-  // TODO: JWT verify ekle (Faz 2'de)
   next();
 });
 
@@ -80,8 +76,22 @@ process.on('uncaughtException', (err) => {
 
 const PORT = process.env.PORT || 3001;
 
-server.listen(PORT, () => {
-  console.log(`Ada Çay Evi server çalışıyor: http://localhost:${PORT}`);
-});
+// DB init + start
+async function start() {
+  try {
+    await initDB();
+    server.listen(PORT, () => {
+      console.log(`✅ Ada Çay Evi server: http://localhost:${PORT}`);
+    });
+  } catch (err) {
+    console.error('❌ Başlatma hatası:', err);
+    // DB yoksa yine de başlat (init.sql migration için)
+    server.listen(PORT, () => {
+      console.log(`⚠️ Ada Çay Evi server (DB'siz): http://localhost:${PORT}`);
+    });
+  }
+}
+
+start();
 
 export { app, io };

@@ -1,206 +1,215 @@
 import { Router } from 'express';
-import { query } from '../db/index.js';
+import { pool } from '../db.js';
+import { sha256Hash } from '../auth.js';
 
-export const adminRoutes = Router();
+const router = Router();
 
-// Dashboard özeti
-adminRoutes.get('/dashboard', async (_req, res) => {
+// Dashboard özet
+router.get('/dashboard', async (_req, res) => {
   try {
-    const bugunku = await query(`
-      SELECT 
-        COALESCE(SUM(CASE WHEN tip = 'gelir' THEN miktar ELSE 0 END), 0) as gelir,
-        COALESCE(SUM(CASE WHEN tip = 'gider' THEN miktar ELSE 0 END), 0) as gider
-      FROM gelir_gider 
-      WHERE tarih::date = CURRENT_DATE
-    `);
-    const acikAdisyon = await query('SELECT COUNT(*) as count FROM adisyonlar WHERE durum = $1', ['acik']);
-    const bugunSatis = await query(`
-      SELECT COALESCE(SUM(toplam), 0) as toplam, COUNT(*) as adet 
-      FROM adisyonlar 
-      WHERE durum = 'kapali' AND bitis::date = CURRENT_DATE
-    `);
+    const bugunSatis = await pool.query(
+      "SELECT COALESCE(SUM(toplam), 0) as toplam FROM adisyonlar WHERE date(kapanis_tarih) = date(NOW()) AND durum = 'kapali'"
+    );
+    const bugunAdet = await pool.query(
+      "SELECT COUNT(*) as adet FROM adisyonlar WHERE date(kapanis_tarih) = date(NOW()) AND durum = 'kapali'"
+    );
+    const aktifAdisyon = await pool.query(
+      "SELECT COUNT(*) as adet FROM adisyonlar WHERE durum = 'acik'"
+    );
+    const doluMasa = await pool.query(
+      "SELECT COUNT(*) as adet FROM masalar WHERE durum = 'dolu'"
+    );
+    const toplamMasa = await pool.query("SELECT COUNT(*) as adet FROM masalar");
+    const bugunGelir = await pool.query(
+      "SELECT COALESCE(SUM(miktar), 0) as toplam FROM gelir_gider WHERE date(tarih) = date(NOW()) AND tip = 'gelir'"
+    );
+    const bugunGider = await pool.query(
+      "SELECT COALESCE(SUM(miktar), 0) as toplam FROM gelir_gider WHERE date(tarih) = date(NOW()) AND tip = 'gider'"
+    );
     res.json({
-      bugun_gelir: bugunku.rows[0].gelir,
-      bugun_gider: bugunku.rows[0].gider,
-      acik_adisyon: acikAdisyon.rows[0].count,
-      bugun_satis_toplam: bugunSatis.rows[0].toplam,
-      bugun_satis_adet: bugunSatis.rows[0].adet,
+      bugun_satis: parseFloat(bugunSatis.rows[0].toplam),
+      bugun_adet: parseInt(bugunAdet.rows[0].adet),
+      aktif_adisyon: parseInt(aktifAdisyon.rows[0].adet),
+      dolu_masa: parseInt(doluMasa.rows[0].adet),
+      toplam_masa: parseInt(toplamMasa.rows[0].adet),
+      bugun_gelir: parseFloat(bugunGelir.rows[0].toplam),
+      bugun_gider: parseFloat(bugunGider.rows[0].toplam),
     });
-  } catch (e) {
-    console.error('Dashboard hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
   }
 });
 
-// Açık adisyonlar (LEFT JOIN garsonlar — garson silinirse de görünür)
-adminRoutes.get('/adisyonlar/acik', async (_req, res) => {
+// Garson listesi
+router.get('/garsonlar', async (_req, res) => {
   try {
-    const result = await query(`
-      SELECT a.id, a.masa_id, m.no as masa_no, m.ad as masa_ad,
-             a.garson_id, g.ad as garson_ad,
-             a.baslangic, a.ara_toplam,
-             (SELECT COUNT(*) FROM adisyon_kalemleri WHERE adisyon_id = a.id) as kalem_sayisi
-      FROM adisyonlar a
-      JOIN masalar m ON a.masa_id = m.id
-      LEFT JOIN garsonlar g ON a.garson_id = g.id
-      WHERE a.durum = 'acik'
-      ORDER BY a.baslangic
-    `);
-    res.json(result.rows);
-  } catch (e) {
-    console.error('Açık adisyonlar hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
-  }
-});
-
-// Tarih arası rapor — validation'lı
-adminRoutes.get('/rapor', async (req, res) => {
-  const { baslangic, bitis } = req.query as { baslangic?: string; bitis?: string };
-  if (!baslangic || !bitis) {
-    return res.status(400).json({ error: 'baslangic ve bitis gerekli' });
-  }
-  const basDate = new Date(baslangic);
-  const bitDate = new Date(bitis);
-  if (Number.isNaN(basDate.getTime()) || Number.isNaN(bitDate.getTime())) {
-    return res.status(400).json({ error: 'Geçersiz tarih formatı' });
-  }
-  if (basDate > bitDate) {
-    return res.status(400).json({ error: 'baslangic bitis tarihinden sonra olamaz' });
-  }
-  try {
-    const satislar = await query(`
-      SELECT a.id, a.masa_id, m.no as masa_no, g.ad as garson_ad,
-             a.baslangic, a.bitis, a.toplam, a.odeme_tipi, a.indirim
-      FROM adisyonlar a
-      JOIN masalar m ON a.masa_id = m.id
-      LEFT JOIN garsonlar g ON a.garson_id = g.id
-      WHERE a.durum = 'kapali' 
-        AND a.bitis::date BETWEEN $1 AND $2
-      ORDER BY a.bitis
-    `, [baslangic, bitis]);
-
-    const ozet = await query(`
-      SELECT 
-        COUNT(*) as adisyon_sayisi,
-        COALESCE(SUM(toplam), 0) as toplam_ciro,
-        COALESCE(SUM(CASE WHEN odeme_tipi = 'nakit' THEN toplam ELSE 0 END), 0) as nakit,
-        COALESCE(SUM(CASE WHEN odeme_tipi = 'kart' THEN toplam ELSE 0 END), 0) as kart,
-        COALESCE(SUM(indirim), 0) as toplam_indirim
-      FROM adisyonlar
-      WHERE durum = 'kapali' AND bitis::date BETWEEN $1 AND $2
-    `, [baslangic, bitis]);
-
-    res.json({ satislar: satislar.rows, ozet: ozet.rows[0] });
-  } catch (e) {
-    console.error('Rapor hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
-  }
-});
-
-// Gelir/gider ekle — validation'lı
-adminRoutes.post('/gelir-gider', async (req, res) => {
-  const { tip, kategori, miktar, aciklama, kullanici_id } = req.body;
-  if (!tip || !['gelir', 'gider'].includes(tip)) {
-    return res.status(400).json({ error: 'tip gelir veya gider olmalı' });
-  }
-  if (!miktar || miktar <= 0) {
-    return res.status(400).json({ error: 'miktar pozitif olmalı' });
-  }
-  try {
-    await query(
-      'INSERT INTO gelir_gider (tip, kategori, miktar, aciklama, kullanici_id) VALUES ($1, $2, $3, $4, $5)',
-      [tip, kategori, miktar, aciklama, kullanici_id]
+    const result = await pool.query(
+      'SELECT id, telefon, ad, rol, aktif, olusturma_tarih FROM kullanicilar ORDER BY id'
     );
-    res.json({ success: true });
-  } catch (e) {
-    console.error('Gelir-gider ekleme hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
-  }
-});
-
-// Gelir/gider listesi
-adminRoutes.get('/gelir-gider', async (req, res) => {
-  const { baslangic, bitis } = req.query as { baslangic?: string; bitis?: string };
-  if (!baslangic || !bitis) {
-    return res.status(400).json({ error: 'baslangic ve bitis gerekli' });
-  }
-  try {
-    const result = await query(`
-      SELECT * FROM gelir_gider 
-      WHERE tarih::date BETWEEN $1 AND $2
-      ORDER BY tarih DESC
-    `, [baslangic, bitis]);
     res.json(result.rows);
-  } catch (e) {
-    console.error('Gelir-gider listesi hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
   }
 });
 
-// Menü yönetimi
-adminRoutes.get('/menu', async (_req, res) => {
-  try {
-    const result = await query(`
-      SELECT u.*, k.ad as kategori_ad 
-      FROM urunler u 
-      LEFT JOIN kategoriler k ON u.kategori_id = k.id 
-      ORDER BY k.sira, u.sira
-    `);
-    res.json(result.rows);
-  } catch (e) {
-    console.error('Menü listesi hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
-  }
-});
-
-adminRoutes.post('/menu', async (req, res) => {
-  const { ad, kategori_id, fiyat } = req.body;
-  if (!ad || ad.trim() === '') {
-    return res.status(400).json({ error: 'Ürün adı gerekli' });
-  }
-  if (!fiyat || fiyat <= 0) {
-    return res.status(400).json({ error: 'Fiyat pozitif olmalı' });
+// Garson ekle
+router.post('/garsonlar', async (req, res) => {
+  const { telefon, ad, rol, sifre } = req.body;
+  if (!telefon || !ad || !sifre) {
+    return res.status(400).json({ hata: 'telefon, ad ve sifre gerekli' });
   }
   try {
-    const result = await query(
-      'INSERT INTO urunler (ad, kategori_id, fiyat) VALUES ($1, $2, $3) RETURNING id',
-      [ad, kategori_id, fiyat]
+    const result = await pool.query(
+      'INSERT INTO kullanicilar (telefon, ad, rol, sifre_hash) VALUES ($1, $2, $3, $4) RETURNING id, telefon, ad, rol, aktif, olusturma_tarih',
+      [telefon, ad, rol || 'garson', sha256Hash(sifre)]
     );
-    res.json({ id: result.rows[0].id, success: true });
-  } catch (e) {
-    console.error('Menü ekleme hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    if (err.code === '23505') {
+      return res.status(400).json({ hata: 'Bu telefon numarası zaten kayıtlı' });
+    }
+    res.status(500).json({ hata: 'Sunucu hatası' });
   }
 });
 
-adminRoutes.put('/menu/:id', async (req, res) => {
-  const { id } = req.params;
-  const { ad, kategori_id, fiyat, aktif } = req.body;
-  if (!ad || ad.trim() === '') {
-    return res.status(400).json({ error: 'Ürün adı gerekli' });
+// Garson güncelle
+router.put('/garsonlar/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { ad, rol, aktif } = req.body;
+  try {
+    await pool.query(
+      'UPDATE kullanicilar SET ad = $1, rol = $2, aktif = $3 WHERE id = $4',
+      [ad, rol, aktif, id]
+    );
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
   }
-  if (fiyat !== undefined && fiyat <= 0) {
-    return res.status(400).json({ error: 'Fiyat pozitif olmalı' });
+});
+
+// Garson sil
+router.delete('/garsonlar/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    // Son admin silinemez
+    const adminCount = await pool.query("SELECT COUNT(*) as adet FROM kullanicilar WHERE rol = 'admin' AND aktif = true");
+    const isAdmin = await pool.query("SELECT rol FROM kullanicilar WHERE id = $1", [id]);
+    if (isAdmin.rows[0]?.rol === 'admin' && parseInt(adminCount.rows[0].adet) <= 1) {
+      return res.status(400).json({ hata: 'Son admin silinemez' });
+    }
+    await pool.query('DELETE FROM kullanicilar WHERE id = $1', [id]);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+// Ürün ekle
+router.post('/urunler', async (req, res) => {
+  const { ad, kategoriId, fiyat } = req.body;
+  if (!ad || !fiyat) {
+    return res.status(400).json({ hata: 'ad ve fiyat gerekli' });
   }
   try {
-    await query(
+    const result = await pool.query(
+      'INSERT INTO urunler (ad, kategori_id, fiyat) VALUES ($1, $2, $3) RETURNING *',
+      [ad, kategoriId, fiyat]
+    );
+    res.json(result.rows[0]);
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+// Ürün güncelle
+router.put('/urunler/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { ad, kategoriId, fiyat, aktif } = req.body;
+  try {
+    await pool.query(
       'UPDATE urunler SET ad = $1, kategori_id = $2, fiyat = $3, aktif = $4 WHERE id = $5',
-      [ad, kategori_id, fiyat, aktif, id]
+      [ad, kategoriId, fiyat, aktif, id]
     );
-    res.json({ success: true });
-  } catch (e) {
-    console.error('Menü güncelleme hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
   }
 });
 
-adminRoutes.delete('/menu/:id', async (req, res) => {
-  const { id } = req.params;
+// Ürün sil (soft delete)
+router.delete('/urunler/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
   try {
-    await query('UPDATE urunler SET aktif = false WHERE id = $1', [id]);
-    res.json({ success: true });
-  } catch (e) {
-    console.error('Menü silme hatası:', e);
-    res.status(500).json({ error: 'Sunucu hatası' });
+    await pool.query('UPDATE urunler SET aktif = false WHERE id = $1', [id]);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
   }
 });
+
+// Masa ekle
+router.post('/masalar', async (req, res) => {
+  const { numara, ad, kapasite } = req.body;
+  if (!numara) {
+    return res.status(400).json({ hata: 'numara gerekli' });
+  }
+  try {
+    const result = await pool.query(
+      'INSERT INTO masalar (numara, ad, kapasite) VALUES ($1, $2, $3) RETURNING *',
+      [numara, ad, kapasite || 4]
+    );
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    if (err.code === '23505') {
+      return res.status(400).json({ hata: 'Bu masa numarası zaten mevcut' });
+    }
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+// Rapor — tarih aralığı
+router.get('/rapor', async (req, res) => {
+  const baslangic = req.query.baslangic as string;
+  const bitis = req.query.bitis as string;
+  if (!baslangic || !bitis) {
+    return res.status(400).json({ hata: 'baslangic ve bitis gerekli' });
+  }
+  try {
+    const adisyonlar = await pool.query(
+      `SELECT a.*, k.ad as garson_ad, m.numara as masa_numara
+       FROM adisyonlar a
+       JOIN kullanicilar k ON a.garson_id = k.id
+       JOIN masalar m ON a.masa_id = m.id
+       WHERE date(a.kapanis_tarih) BETWEEN date($1) AND date($2)
+       AND a.durum = 'kapali'
+       ORDER BY a.kapanis_tarih DESC`,
+      [baslangic, bitis]
+    );
+    const gelirGider = await pool.query(
+      `SELECT * FROM gelir_gider WHERE date(tarih) BETWEEN date($1) AND date($2) ORDER BY tarih DESC`,
+      [baslangic, bitis]
+    );
+    res.json({ adisyonlar: adisyonlar.rows, gelir_gider: gelirGider.rows });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+// Gelir/gider ekle
+router.post('/gelir-gider', async (req, res) => {
+  const { tip, kategori, miktar, aciklama } = req.body;
+  if (!tip || !miktar) {
+    return res.status(400).json({ hata: 'tip ve miktar gerekli' });
+  }
+  try {
+    const result = await pool.query(
+      'INSERT INTO gelir_gider (tip, kategori, miktar, aciklama) VALUES ($1, $2, $3, $4) RETURNING *',
+      [tip, kategori, miktar, aciklama]
+    );
+    res.json(result.rows[0]);
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+export { router as adminRoutes };

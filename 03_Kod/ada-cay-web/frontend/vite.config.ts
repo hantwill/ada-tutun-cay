@@ -1,17 +1,19 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
     react(),
+    tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
         name: 'Ada Çay Evi',
         short_name: 'AdaÇay',
         description: 'Ada Çay Evi Adisyon Sistemi',
-        theme_color: '#10B981',
+        theme_color: '#d97706',
         background_color: '#FFFFFF',
         display: 'standalone',
         start_url: '/',
