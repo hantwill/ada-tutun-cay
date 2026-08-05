@@ -90,9 +90,8 @@ INSERT INTO kategoriler (ad, siralama) VALUES
 ON CONFLICT DO NOTHING;
 
 -- Default admin (telefon: 5550000000, şifre: admin123)
--- Şifre hash: SHA-256('admin123') = 240be518fabd2724c4c2214f5ed8b2d6a3b1c8e6e2a3b4c5d6e7f8a9b0c1d2e
 INSERT INTO kullanicilar (telefon, ad, rol, sifre_hash) VALUES
-    ('5550000000', 'Yönetici', 'admin', '240be518fabd2724c4c2214f5ed8b2d6a3b1c8e6e2a3b4c5d6e7f8a9b0c1d2e')
+    ('5550000000', 'Yönetici', 'admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9')
 ON CONFLICT DO NOTHING;
 
 -- Default masalar

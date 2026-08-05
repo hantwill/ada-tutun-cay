@@ -107,7 +107,7 @@ export default function Masalar() {
         miktar: 1
       }, token || undefined)
       // Adisyonu yeniden yükle
-      const data = await apiGet(`/garson/masa/${seciliMasa?.id}/adisyon`, token || undefined)
+      const data = await apiGet(`/garson/masa/${seciliMasa!.id}/adisyon`, token || undefined)
       setAdisyon(data.adisyon)
       setKalemler(data.kalemler || [])
     } catch (e) { console.error(e) }
@@ -116,7 +116,7 @@ export default function Masalar() {
   const kalemIptal = async (kalemId: number) => {
     try {
       await apiDelete(`/garson/adisyon/kalem/${kalemId}`, token || undefined)
-      const data = await apiGet(`/garson/masa/${seciliMasa?.id}/adisyon`, token || undefined)
+      const data = await apiGet(`/garson/masa/${seciliMasa!.id}/adisyon`, token || undefined)
       setAdisyon(data.adisyon)
       setKalemler(data.kalemler || [])
     } catch (e) { console.error(e) }

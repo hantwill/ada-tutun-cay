@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
 import { sha256Hash, generateToken } from '../auth.js';
+import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
 
-// Garson login (telefon + şifre)
+// Garson login (telefon + şifre) — auth gerektirmez
 router.post('/login', async (req, res) => {
   const { telefon, sifre } = req.body;
   if (!telefon || !sifre) {
@@ -25,6 +26,9 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ hata: 'Sunucu hatası' });
   }
 });
+
+// Tüm garson route'ları login sonrası auth gerektirir
+router.use(authMiddleware);
 
 // Tüm masalar
 router.get('/masalar', async (_req, res) => {

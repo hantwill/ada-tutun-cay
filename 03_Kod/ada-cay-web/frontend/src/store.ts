@@ -18,7 +18,15 @@ interface AppStore {
 
 export const useStore = create<AppStore>((set) => ({
   token: localStorage.getItem('token'),
-  kullanici: localStorage.getItem('kullanici') ? JSON.parse(localStorage.getItem('kullanici')!) : null,
+  kullanici: (() => {
+    try {
+      const raw = localStorage.getItem('kullanici')
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      localStorage.removeItem('kullanici')
+      return null
+    }
+  })(),
   setLogin: (token, kullanici) => {
     localStorage.setItem('token', token)
     localStorage.setItem('kullanici', JSON.stringify(kullanici))
@@ -29,7 +37,16 @@ export const useStore = create<AppStore>((set) => ({
     localStorage.removeItem('kullanici')
     set({ token: null, kullanici: null, sayfa: 'masalar' })
   },
-  sayfa: 'masalar',
+  sayfa: (() => {
+    try {
+      const raw = localStorage.getItem('kullanici')
+      if (!raw) return 'masalar'
+      const k = JSON.parse(raw)
+      return k?.rol === 'admin' ? 'dashboard' : 'masalar'
+    } catch {
+      return 'masalar'
+    }
+  })(),
   setSayfa: (s) => set({ sayfa: s }),
 }))
 
@@ -39,6 +56,11 @@ export async function apiGet(path: string, token?: string) {
   const res = await fetch(`${API}/api${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
+  if (res.status === 401) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('kullanici')
+    window.location.reload()
+  }
   if (!res.ok) throw new Error((await res.json())?.hata || 'Hata')
   return res.json()
 }
@@ -52,6 +74,11 @@ export async function apiPost(path: string, body: any, token?: string) {
     },
     body: JSON.stringify(body),
   })
+  if (res.status === 401) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('kullanici')
+    window.location.reload()
+  }
   if (!res.ok) throw new Error((await res.json())?.hata || 'Hata')
   return res.json()
 }
@@ -65,6 +92,11 @@ export async function apiPut(path: string, body: any, token?: string) {
     },
     body: JSON.stringify(body),
   })
+  if (res.status === 401) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('kullanici')
+    window.location.reload()
+  }
   if (!res.ok) throw new Error((await res.json())?.hata || 'Hata')
   return res.json()
 }
@@ -74,6 +106,11 @@ export async function apiDelete(path: string, token?: string) {
     method: 'DELETE',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
+  if (res.status === 401) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('kullanici')
+    window.location.reload()
+  }
   if (!res.ok) throw new Error((await res.json())?.hata || 'Hata')
   return res.json()
 }

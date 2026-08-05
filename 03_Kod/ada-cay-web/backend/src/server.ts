@@ -25,7 +25,7 @@ app.use(cors({ origin: corsOrigin, credentials: false }));
 app.use(express.json({ limit: '10kb' }));
 
 // Routes
-app.use('/api/garson', garsonRoutes);
+app.use('/api/garson', garsonRoutes); // login açık, diğerleri auth gerektirir
 app.use('/api/admin', authMiddleware, roleMiddleware('admin'), adminRoutes);
 
 // Health check
@@ -33,12 +33,19 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
+import { verifyToken } from './auth.js';
+
 // Socket.io — JWT auth
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
   if (!token) {
     return next(new Error('Token yok'));
   }
+  const payload = verifyToken(token);
+  if (!payload) {
+    return next(new Error('Geçersiz token'));
+  }
+  socket.data.user = payload;
   next();
 });
 
@@ -78,18 +85,24 @@ const PORT = process.env.PORT || 3001;
 
 // DB init + start
 async function start() {
-  try {
-    await initDB();
-    server.listen(PORT, () => {
-      console.log(`✅ Ada Çay Evi server: http://localhost:${PORT}`);
-    });
-  } catch (err) {
-    console.error('❌ Başlatma hatası:', err);
-    // DB yoksa yine de başlat (init.sql migration için)
-    server.listen(PORT, () => {
-      console.log(`⚠️ Ada Çay Evi server (DB'siz): http://localhost:${PORT}`);
-    });
+  let retries = 5;
+  while (retries > 0) {
+    try {
+      await initDB();
+      server.listen(PORT, () => {
+        console.log(`✅ Ada Çay Evi server: http://localhost:${PORT}`);
+      });
+      return;
+    } catch (err) {
+      retries--;
+      console.error(`DB bağlantı hatası (kalan deneme: ${retries}):`, err);
+      if (retries > 0) await new Promise(r => setTimeout(r, 3000));
+    }
   }
+  // DB yoksa yine de başlat
+  server.listen(PORT, () => {
+    console.log(`⚠️ Ada Çay Evi server (DB'siz): http://localhost:${PORT}`);
+  });
 }
 
 start();
