@@ -81,6 +81,9 @@ CREATE INDEX IF NOT EXISTS idx_adisyonlar_durum ON adisyonlar(durum);
 CREATE INDEX IF NOT EXISTS idx_adisyon_kalemleri_adisyon ON adisyon_kalemleri(adisyon_id);
 CREATE INDEX IF NOT EXISTS idx_urunler_kategori ON urunler(kategori_id);
 
+-- Masa başına tek açık adisyon (race condition önlemi)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_adisyonlar_masa_acik ON adisyonlar(masa_id) WHERE durum = 'acik';
+
 -- Default veriler
 INSERT INTO kategoriler (ad, siralama) VALUES
     ('Çaylar', 1),

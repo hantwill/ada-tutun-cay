@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
-import { sha256Hash } from '../auth.js';
+import { sha256Hash, hashPassword } from '../auth.js';
 
 const router = Router();
 
@@ -61,7 +61,7 @@ router.post('/garsonlar', async (req, res) => {
   try {
     const result = await pool.query(
       'INSERT INTO kullanicilar (kullanici_ad, ad, rol, sifre_hash) VALUES ($1, $2, $3, $4) RETURNING id, kullanici_ad, ad, rol, aktif, olusturma_tarih',
-      [kullanici_ad, ad, rol || 'garson', sha256Hash(sifre)]
+      [kullanici_ad, ad, rol || 'garson', hashPassword(sifre)]
     );
     res.json(result.rows[0]);
   } catch (err: any) {
@@ -248,17 +248,24 @@ router.get('/rapor/csv', async (req, res) => {
     );
 
     // CSV — UTF-8 BOM ile (Excel Türkçe destek)
+    // Formula injection koruması: =, +, -, @ ile başlayan hücreleri escape'le
+    const sanitize = (val: any): string => {
+      const s = String(val ?? '');
+      if (/^[=+\-@\t\r]/.test(s)) return `'${s}`;
+      return s.replace(/;/g, ','); // noktalı virgül conflict
+    };
+
     let csv = '\u{FEFF}';
     csv += 'Tip;ID;Tarih;Garson/Kategori;Masa;Aciklama;Toplam;Odeme;Durum\n';
 
     for (const a of adisyonlar.rows) {
       const tarih = new Date(a.kapanis_tarih).toLocaleString('tr-TR');
-      csv += `Adisyon;${a.id};${tarih};${a.garson_ad};${a.masa_numara};;${a.toplam};${a.odeme_tipi};${a.durum}\n`;
+      csv += `Adisyon;${a.id};${tarih};${sanitize(a.garson_ad)};${sanitize(a.masa_numara)};;${a.toplam};${sanitize(a.odeme_tipi)};${a.durum}\n`;
     }
 
     for (const g of gelirGider.rows) {
       const tarih = new Date(g.tarih).toLocaleString('tr-TR');
-      csv += `${g.tip};${g.id};${tarih};${g.kategori || ''};;${g.aciklama || ''};${g.miktar};;\n`;
+      csv += `${g.tip};${g.id};${tarih};${sanitize(g.kategori)};;${sanitize(g.aciklama)};${g.miktar};;\n`;
     }
 
     // Toplamlar

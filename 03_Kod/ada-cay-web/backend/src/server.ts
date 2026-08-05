@@ -1,6 +1,8 @@
 import express from 'express';
 import http from 'node:http';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
 import { pool, initDB } from './db.js';
@@ -13,8 +15,26 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// CORS — Tailscale veya localhost
+// CORS
 const corsOrigin = process.env.CORS_ORIGIN || '*';
+
+// Helmet — güvenlik header'ları
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// Rate limit — login brute force önlemi
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 dakika
+  max: 10, // 10 deneme
+  message: { hata: 'Çok fazla giriş denemesi, 15 dakika bekleyin' }
+});
+
+// Genel rate limit
+const generalLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 dakika
+  max: 100, // 100 istek
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 const io = new Server(server, {
   cors: { origin: corsOrigin, credentials: false }
@@ -23,6 +43,10 @@ const io = new Server(server, {
 app.disable('x-powered-by');
 app.use(cors({ origin: corsOrigin, credentials: false }));
 app.use(express.json({ limit: '10kb' }));
+app.use(generalLimiter);
+
+// Login rate limit sadece /api/garson/login'de
+app.use('/api/garson/login', loginLimiter);
 
 // Routes
 app.use('/api/garson', garsonRoutes); // login açık, diğerleri auth gerektirir
@@ -50,7 +74,7 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  console.log('Garson bağlandı:', socket.id);
+  console.log('Kullanıcı bağlandı:', socket.data.user?.ad);
 
   socket.on('adisyon:open', (masaId: number) => {
     if (typeof masaId !== 'number') return;
@@ -68,11 +92,29 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log('Garson ayrıldı:', socket.id);
+    console.log('Kullanıcı ayrıldı:', socket.id);
   });
 });
 
 // Graceful shutdown
+function gracefulShutdown(signal: string) {
+  console.log(`\n${signal} alındı — kapatılıyor...`);
+  server.close(() => {
+    console.log('HTTP server kapandı');
+    pool.end(() => {
+      console.log('DB pool kapandı');
+      io.close(() => {
+        console.log('Socket.io kapandı');
+        process.exit(0);
+      });
+    });
+  });
+  // 10 saniye sonra zorla kapat
+  setTimeout(() => process.exit(1), 10000);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
 });

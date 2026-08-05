@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
-import { sha256Hash, generateToken } from '../auth.js';
+import { sha256Hash, hashPassword, verifyPassword, generateToken } from '../auth.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
@@ -13,15 +13,23 @@ router.post('/login', async (req, res) => {
   }
   try {
     const result = await pool.query(
-      'SELECT id, kullanici_ad, ad, rol FROM kullanicilar WHERE kullanici_ad = $1 AND sifre_hash = $2 AND aktif = true',
-      [kullanici_ad, sha256Hash(sifre)]
+      'SELECT id, kullanici_ad, ad, rol, sifre_hash FROM kullanicilar WHERE kullanici_ad = $1 AND aktif = true',
+      [kullanici_ad]
     );
     if (result.rows.length === 0) {
       return res.status(401).json({ hata: 'Hatalı kullanıcı adı veya şifre' });
     }
     const user = result.rows[0];
+    if (!verifyPassword(sifre, user.sifre_hash)) {
+      return res.status(401).json({ hata: 'Hatalı kullanıcı adı veya şifre' });
+    }
+    // Eski SHA-256 hash ise bcrypt'e migrate et
+    if (!user.sifre_hash.startsWith('$2')) {
+      const newHash = hashPassword(sifre);
+      await pool.query('UPDATE kullanicilar SET sifre_hash = $1 WHERE id = $2', [newHash, user.id]);
+    }
     const token = generateToken({ id: user.id, kullanici_ad: user.kullanici_ad, ad: user.ad, rol: user.rol });
-    res.json({ token, kullanici: user });
+    res.json({ token, kullanici: { id: user.id, kullanici_ad: user.kullanici_ad, ad: user.ad, rol: user.rol } });
   } catch {
     res.status(500).json({ hata: 'Sunucu hatası' });
   }
@@ -66,28 +74,38 @@ router.get('/masa/:id/adisyon', async (req, res) => {
 router.post('/adisyon/ac', async (req, res) => {
   const { masaId } = req.body;
   const garsonId = (req as any).user.id;
-  if (!masaId) {
-    return res.status(400).json({ hata: 'masaId gerekli' });
+  if (!masaId || typeof masaId !== 'number') {
+    return res.status(400).json({ hata: 'masaId gerekli (sayı)' });
   }
+  const client = await pool.connect();
   try {
-    // Açık adisyon var mı kontrol
-    const existing = await pool.query(
+    await client.query('BEGIN');
+    // Açık adisyon var mı kontrol (race condition önlemi — unique index ile)
+    const existing = await client.query(
       'SELECT id FROM adisyonlar WHERE masa_id = $1 AND durum = $2',
       [masaId, 'acik']
     );
     if (existing.rows.length > 0) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ hata: 'Bu masada zaten açık adisyon var', adisyonId: existing.rows[0].id });
     }
     // Yeni adisyon aç
-    const result = await pool.query(
+    const result = await client.query(
       'INSERT INTO adisyonlar (masa_id, garson_id, durum) VALUES ($1, $2, $3) RETURNING *',
       [masaId, garsonId, 'acik']
     );
     // Masayı dolu yap
-    await pool.query("UPDATE masalar SET durum = 'dolu', guncelleme_tarih = NOW() WHERE id = $1", [masaId]);
+    await client.query("UPDATE masalar SET durum = 'dolu', guncelleme_tarih = NOW() WHERE id = $1", [masaId]);
+    await client.query('COMMIT');
     res.json(result.rows[0]);
-  } catch {
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    if (err.code === '23505') {
+      return res.status(400).json({ hata: 'Bu masada zaten açık adisyon var' });
+    }
     res.status(500).json({ hata: 'Sunucu hatası' });
+  } finally {
+    client.release();
   }
 });
 
@@ -146,31 +164,38 @@ router.delete('/adisyon/kalem/:kalemId', async (req, res) => {
 router.post('/adisyon/:id/kapat', async (req, res) => {
   const adisyonId = parseInt(req.params.id);
   const { odemeTipi } = req.body;
-  if (!odemeTipi) {
-    return res.status(400).json({ hata: 'odemeTipi gerekli' });
+  if (!odemeTipi || !['nakit', 'kart'].includes(odemeTipi)) {
+    return res.status(400).json({ hata: 'odemeTipi gerekli (nakit veya kart)' });
   }
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     // Adisyon toplamını getir
-    const adisyonResult = await pool.query('SELECT masa_id, toplam FROM adisyonlar WHERE id = $1 AND durum = $2', [adisyonId, 'acik']);
+    const adisyonResult = await client.query('SELECT masa_id, toplam FROM adisyonlar WHERE id = $1 AND durum = $2', [adisyonId, 'acik']);
     if (adisyonResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ hata: 'Açık adisyon bulunamadı' });
     }
     const { masa_id, toplam } = adisyonResult.rows[0];
     // Adisyonu kapat
-    await pool.query(
+    await client.query(
       "UPDATE adisyonlar SET durum = 'kapali', kapanis_tarih = NOW(), odeme_tipi = $1 WHERE id = $2",
       [odemeTipi, adisyonId]
     );
     // Masayı boşalt
-    await pool.query("UPDATE masalar SET durum = 'bos', guncelleme_tarih = NOW() WHERE id = $1", [masa_id]);
+    await client.query("UPDATE masalar SET durum = 'bos', guncelleme_tarih = NOW() WHERE id = $1", [masa_id]);
     // Gelir kaydet
-    await pool.query(
+    await client.query(
       "INSERT INTO gelir_gider (tip, kategori, miktar, aciklama) VALUES ('gelir', 'Adisyon', $1, $2)",
       [toplam, `Adisyon #${adisyonId}`]
     );
+    await client.query('COMMIT');
     res.json({ ok: true, toplam });
-  } catch {
+  } catch (err: any) {
+    await client.query('ROLLBACK');
     res.status(500).json({ hata: 'Sunucu hatası' });
+  } finally {
+    client.release();
   }
 });
 
