@@ -1,5 +1,4 @@
 User-agent: *
-Allow: /
-Disallow: /api/
+Disallow: /
 
 Sitemap: https://ada-cay-evi.app/sitemap.xml

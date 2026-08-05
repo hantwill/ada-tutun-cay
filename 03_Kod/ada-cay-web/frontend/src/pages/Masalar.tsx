@@ -83,7 +83,7 @@ export default function Masalar() {
   const adisyonAc = async () => {
     if (!seciliMasa || !kullanici) return
     try {
-      const data = await apiPost('/garson/adisyon/ac', { masaId: seciliMasa.id, garsonId: kullanici.id }, token || undefined)
+      const data = await apiPost('/garson/adisyon/ac', { masaId: seciliMasa.id }, token || undefined)
       setAdisyon(data); yukleMasalar(); mesajGoster('Adisyon açıldı')
     } catch (e: any) { mesajGoster(String(e.message || e)) }
   }

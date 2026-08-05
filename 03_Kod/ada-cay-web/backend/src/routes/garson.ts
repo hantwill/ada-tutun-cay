@@ -64,9 +64,10 @@ router.get('/masa/:id/adisyon', async (req, res) => {
 
 // Adisyon aç
 router.post('/adisyon/ac', async (req, res) => {
-  const { masaId, garsonId } = req.body;
-  if (!masaId || !garsonId) {
-    return res.status(400).json({ hata: 'masaId ve garsonId gerekli' });
+  const { masaId } = req.body;
+  const garsonId = (req as any).user.id;
+  if (!masaId) {
+    return res.status(400).json({ hata: 'masaId gerekli' });
   }
   try {
     // Açık adisyon var mı kontrol

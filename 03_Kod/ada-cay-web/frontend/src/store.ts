@@ -61,7 +61,10 @@ export async function apiGet(path: string, token?: string) {
     localStorage.removeItem('kullanici')
     window.location.reload()
   }
-  if (!res.ok) throw new Error((await res.json())?.hata || 'Hata')
+  if (!res.ok) {
+    const txt = await res.text()
+    try { throw new Error(JSON.parse(txt)?.hata || 'Hata') } catch { throw new Error(txt || 'Hata') }
+  }
   return res.json()
 }
 
@@ -74,12 +77,15 @@ export async function apiPost(path: string, body: any, token?: string) {
     },
     body: JSON.stringify(body),
   })
-  if (res.status === 401) {
+  if (res.status === 401 && !path.includes('/login')) {
     localStorage.removeItem('token')
     localStorage.removeItem('kullanici')
     window.location.reload()
   }
-  if (!res.ok) throw new Error((await res.json())?.hata || 'Hata')
+  if (!res.ok) {
+    const txt = await res.text()
+    try { throw new Error(JSON.parse(txt)?.hata || 'Hata') } catch { throw new Error(txt || 'Hata') }
+  }
   return res.json()
 }
 
@@ -97,7 +103,10 @@ export async function apiPut(path: string, body: any, token?: string) {
     localStorage.removeItem('kullanici')
     window.location.reload()
   }
-  if (!res.ok) throw new Error((await res.json())?.hata || 'Hata')
+  if (!res.ok) {
+    const txt = await res.text()
+    try { throw new Error(JSON.parse(txt)?.hata || 'Hata') } catch { throw new Error(txt || 'Hata') }
+  }
   return res.json()
 }
 
@@ -111,6 +120,9 @@ export async function apiDelete(path: string, token?: string) {
     localStorage.removeItem('kullanici')
     window.location.reload()
   }
-  if (!res.ok) throw new Error((await res.json())?.hata || 'Hata')
+  if (!res.ok) {
+    const txt = await res.text()
+    try { throw new Error(JSON.parse(txt)?.hata || 'Hata') } catch { throw new Error(txt || 'Hata') }
+  }
   return res.json()
 }
