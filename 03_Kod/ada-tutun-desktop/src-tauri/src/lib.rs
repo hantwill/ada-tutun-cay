@@ -1,6 +1,7 @@
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
+use tauri::Manager;
 
 // === DB STATE ===
 pub struct DbState(pub Mutex<Connection>);
@@ -893,17 +894,22 @@ fn get_kategoriler(db: tauri::State<DbState>) -> Result<Vec<(i64, String)>, Stri
 
 #[tauri::command]
 fn shift_ac(db: tauri::State<DbState>, kullanici_id: i64, acilis_kasa: f64) -> Result<i64, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    // Onceki acik shifti kapat
-    conn.execute(
-        "UPDATE shiftler SET durum='kapali', bitis=datetime('now', 'localtime') WHERE kullanici_id=?1 AND durum='acik'",
+    let mut conn = db.0.lock().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    // Onceki acik shifti kapat + toplam_satis hesapla
+    tx.execute(
+        "UPDATE shiftler SET durum='kapali', bitis=datetime('now', 'localtime'),
+         toplam_satis=(SELECT COALESCE(SUM(toplam),0) FROM satislar WHERE shift_id=shiftler.id AND durum='tamamlandi')
+         WHERE kullanici_id=?1 AND durum='acik'",
         rusqlite::params![kullanici_id],
     ).map_err(|e| e.to_string())?;
-    conn.execute(
+    tx.execute(
         "INSERT INTO shiftler (kullanici_id, acilis_kasa) VALUES (?1, ?2)",
         rusqlite::params![kullanici_id, acilis_kasa],
     ).map_err(|e| e.to_string())?;
-    Ok(conn.last_insert_rowid())
+    let id = tx.last_insert_rowid();
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(id)
 }
 
 #[tauri::command]
@@ -952,10 +958,16 @@ fn get_shift_gecmis(db: tauri::State<DbState>) -> Result<Vec<ShiftGecmis>, Strin
 #[tauri::command]
 fn shift_kapat(db: tauri::State<DbState>, shift_id: i64, kapanis_kasa: f64) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE shiftler SET durum='kapali', bitis=datetime('now', 'localtime'), kapanis_kasa=?1, toplam_satis=(SELECT COALESCE(SUM(toplam),0) FROM satislar WHERE shift_id=?2) WHERE id=?2",
+    // Sadece acik shifti kapat, durum='tamamlandi' filtresi ekle
+    let affected = conn.execute(
+        "UPDATE shiftler SET durum='kapali', bitis=datetime('now', 'localtime'), kapanis_kasa=?1,
+         toplam_satis=(SELECT COALESCE(SUM(toplam),0) FROM satislar WHERE shift_id=?2 AND durum='tamamlandi')
+         WHERE id=?2 AND durum='acik'",
         rusqlite::params![kapanis_kasa, shift_id],
     ).map_err(|e| e.to_string())?;
+    if affected == 0 {
+        return Err("Shift bulunamadi veya zaten kapali".to_string());
+    }
     Ok(())
 }
 
@@ -965,7 +977,9 @@ fn shift_kapat(db: tauri::State<DbState>, shift_id: i64, kapanis_kasa: f64) -> R
 fn db_yedekle_yol(db: tauri::State<DbState>, hedef_yol: String) -> Result<String, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let file_path = std::path::PathBuf::from(&hedef_yol);
-    conn.execute(&format!("VACUUM INTO '{}'", file_path.to_string_lossy()), [])
+    // SQL injection korumasi: tek tirnak escape
+    let safe_path = hedef_yol.replace('\'', "''");
+    conn.execute(&format!("VACUUM INTO '{}'", safe_path), [])
         .map_err(|e| format!("Yedekleme hatasi: {}", e))?;
     Ok(file_path.to_string_lossy().to_string())
 }
@@ -983,15 +997,8 @@ fn db_geri_yukle_yol(_db: tauri::State<DbState>, kaynak_yol: String) -> Result<S
 // === MAIN ===
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let app_data_dir = std::env::current_dir().unwrap_or_default();
-    let db_path = app_data_dir.join("ada_tutun.db");
-    
-    let conn = Connection::open(&db_path).expect("SQLite baglanamadi");
-    init_db(&conn).expect("DB init hatasi");
-    
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .manage(DbState(Mutex::new(conn)))
         .invoke_handler(tauri::generate_handler![
             login,
             get_kullanicilar,
@@ -1022,6 +1029,15 @@ pub fn run() {
             db_geri_yukle_yol,
         ])
         .setup(|app| {
+            // DB yolunu Tauri app_data_dir'den al (macOS Finder'dan acilmama fix)
+            let app_data_dir = app.path().app_data_dir()
+                .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default());
+            std::fs::create_dir_all(&app_data_dir).ok();
+            let db_path = app_data_dir.join("ada_tutun.db");
+            let conn = Connection::open(&db_path).expect("SQLite baglanamadi");
+            init_db(&conn).expect("DB init hatasi");
+            app.manage(DbState(Mutex::new(conn)));
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()

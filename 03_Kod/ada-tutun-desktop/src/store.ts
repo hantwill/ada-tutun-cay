@@ -16,7 +16,7 @@ interface AppStore {
 
 export const useStore = create<AppStore>((set) => ({
   kullanici: null,
-  setKullanici: (k) => set({ kullanici: k }),
+  setKullanici: (k) => set({ kullanici: k, sayfa: k ? (k.rol === 'admin' ? 'dashboard' : 'pos') : 'dashboard' }),
   sayfa: 'dashboard',
   setSayfa: (s) => set({ sayfa: s }),
 }))
