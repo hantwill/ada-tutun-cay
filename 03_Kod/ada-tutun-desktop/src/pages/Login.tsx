@@ -68,7 +68,6 @@ export default function Login() {
             {yukleniyor ? 'Giriş yapılıyor...' : 'Giriş Yap'}
           </button>
         </div>
-        <p className="text-center text-xs text-gray-400 mt-6">Demo: admin / admin123</p>
       </div>
     </div>
   )

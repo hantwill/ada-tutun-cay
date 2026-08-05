@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { save } from '@tauri-apps/plugin-dialog'
 import { useStore } from '../store'
 import { formatTarih, isoToTr } from '../tarih'
 
@@ -23,13 +24,20 @@ interface GelirGiderKayit {
   tarih: string
 }
 
+function bugunISO(): string {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const gun = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${gun}`
+}
+
 export default function Raporlar() {
   const { kullanici } = useStore()
   const [satislar, setSatislar] = useState<Satis[]>([])
   const [gelirGider, setGelirGider] = useState<GelirGiderKayit[]>([])
-  const today = new Date()
-  const [baslangic, setBaslangic] = useState(today.toISOString().split('T')[0])
-  const [bitis, setBitis] = useState(today.toISOString().split('T')[0])
+  const [baslangic, setBaslangic] = useState(bugunISO())
+  const [bitis, setBitis] = useState(bugunISO())
   const [yeniTip, setYeniTip] = useState<'gelir' | 'gider'>('gelir')
   const [yeniMiktar, setYeniMiktar] = useState(0)
   const [yeniAciklama, setYeniAciklama] = useState('')
@@ -48,7 +56,6 @@ export default function Raporlar() {
   const kartCiro = satislar.filter(s => s.durum === 'tamamlandi' && s.odeme_tipi === 'kart').reduce((sum, s) => sum + s.toplam, 0)
   const gelirToplam = gelirGider.filter(g => g.tip === 'gelir').reduce((sum, g) => sum + g.miktar, 0)
   const giderToplam = gelirGider.filter(g => g.tip === 'gider').reduce((sum, g) => sum + g.miktar, 0)
-  // Net ciro = satış + ek gelir - gider
   const netCiro = satisToplam + gelirToplam - giderToplam
 
   const ekle = async () => {
@@ -67,12 +74,22 @@ export default function Raporlar() {
     setExportYukleniyor(true)
     setMesaj('')
     try {
-      const path = await invoke<string>('export_satislar_csv', { baslangic, bitis })
-      setMesaj(`Excel'e aktarıldı: ${path}`)
-    } catch (e) {
-      if (String(e) !== 'Dosya secimi iptal edildi') {
-        setMesaj(`Hata: ${e}`)
+      // Tauri dialog ile kaydetme yeri sec
+      const path = await save({
+        title: 'Excel/CSV kaydet',
+        defaultPath: `satislar_${baslangic}_${bitis}.csv`,
+        filters: [{ name: 'CSV / Excel', extensions: ['csv'] }]
+      })
+      if (!path) {
+        setExportYukleniyor(false)
+        return
       }
+
+      // Rust'a yolu gonder
+      const result = await invoke<string>('export_satislar_csv_yol', { baslangic, bitis, hedefYol: path })
+      setMesaj(`Excel'e aktarildi: ${result}`)
+    } catch (e) {
+      setMesaj(`Hata: ${e}`)
     } finally {
       setExportYukleniyor(false)
       setTimeout(() => setMesaj(''), 5000)
@@ -88,33 +105,33 @@ export default function Raporlar() {
           disabled={exportYukleniyor}
           className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50"
         >
-          {exportYukleniyor ? 'Aktarılıyor...' : '📊 Excel\'e Aktar'}
+          {exportYukleniyor ? 'Aktariliyor...' : '📊 Excel\'e Aktar'}
         </button>
       </div>
 
-      {/* Tarih seçici */}
+      {/* Tarih secici */}
       <div className="flex gap-2 mb-4 items-center">
-        <label className="text-sm text-gray-500">Başlangıç:</label>
+        <label className="text-sm text-gray-500">Baslangic:</label>
         <input type="date" value={baslangic} onChange={(e) => setBaslangic(e.target.value)} className="px-3 py-2 border rounded-lg" />
         <span className="text-gray-400">-</span>
-        <label className="text-sm text-gray-500">Bitiş:</label>
+        <label className="text-sm text-gray-500">Bitis:</label>
         <input type="date" value={bitis} onChange={(e) => setBitis(e.target.value)} className="px-3 py-2 border rounded-lg" />
         <span className="text-sm text-gray-400 ml-2">({isoToTr(baslangic)} - {isoToTr(bitis)})</span>
       </div>
 
-      {/* Özet kartları */}
+      {/* Ozet kartlari */}
       <div className="grid grid-cols-5 gap-3 mb-6">
-        <div className="bg-blue-50 p-4 rounded-xl"><p className="text-sm text-gray-500">Satış Ciro</p><p className="text-xl font-bold text-blue-600">{satisToplam.toFixed(2)} ₺</p></div>
-        <div className="bg-green-50 p-4 rounded-xl"><p className="text-sm text-gray-500">Nakit</p><p className="text-xl font-bold text-green-600">{nakitCiro.toFixed(2)} ₺</p></div>
-        <div className="bg-purple-50 p-4 rounded-xl"><p className="text-sm text-gray-500">Kart</p><p className="text-xl font-bold text-purple-600">{kartCiro.toFixed(2)} ₺</p></div>
-        <div className="bg-emerald-50 p-4 rounded-xl"><p className="text-sm text-gray-500">Ek Gelir</p><p className="text-xl font-bold text-emerald-600">{gelirToplam.toFixed(2)} ₺</p></div>
-        <div className="bg-red-50 p-4 rounded-xl"><p className="text-sm text-gray-500">Gider</p><p className="text-xl font-bold text-red-600">{giderToplam.toFixed(2)} ₺</p></div>
+        <div className="bg-blue-50 p-4 rounded-xl"><p className="text-sm text-gray-500">Satis Ciro</p><p className="text-xl font-bold text-blue-600">{satisToplam.toFixed(2)} TL</p></div>
+        <div className="bg-green-50 p-4 rounded-xl"><p className="text-sm text-gray-500">Nakit</p><p className="text-xl font-bold text-green-600">{nakitCiro.toFixed(2)} TL</p></div>
+        <div className="bg-purple-50 p-4 rounded-xl"><p className="text-sm text-gray-500">Kart</p><p className="text-xl font-bold text-purple-600">{kartCiro.toFixed(2)} TL</p></div>
+        <div className="bg-emerald-50 p-4 rounded-xl"><p className="text-sm text-gray-500">Ek Gelir</p><p className="text-xl font-bold text-emerald-600">{gelirToplam.toFixed(2)} TL</p></div>
+        <div className="bg-red-50 p-4 rounded-xl"><p className="text-sm text-gray-500">Gider</p><p className="text-xl font-bold text-red-600">{giderToplam.toFixed(2)} TL</p></div>
       </div>
 
-      {/* Net ciro barı */}
+      {/* Net ciro baru */}
       <div className="bg-gray-800 text-white p-4 rounded-xl mb-6 flex justify-between items-center">
-        <span className="text-lg font-medium">Net Ciro (Satış + Gelir - Gider)</span>
-        <span className={`text-2xl font-bold ${netCiro >= 0 ? 'text-green-400' : 'text-red-400'}`}>{netCiro.toFixed(2)} ₺</span>
+        <span className="text-lg font-medium">Net Ciro (Satis + Gelir - Gider)</span>
+        <span className={`text-2xl font-bold ${netCiro >= 0 ? 'text-green-400' : 'text-red-400'}`}>{netCiro.toFixed(2)} TL</span>
       </div>
 
       {/* Gelir/Gider ekle */}
@@ -128,18 +145,18 @@ export default function Raporlar() {
           <input type="number" value={yeniMiktar || ''} onChange={(e) => setYeniMiktar(Number(e.target.value))}
             className="w-32 px-3 py-2 border rounded-lg" placeholder="Miktar" />
           <input type="text" value={yeniAciklama} onChange={(e) => setYeniAciklama(e.target.value)}
-            className="flex-1 px-3 py-2 border rounded-lg" placeholder="Açıklama" />
+            className="flex-1 px-3 py-2 border rounded-lg" placeholder="Aciklama" />
           <button onClick={ekle} className="bg-blue-600 text-white px-4 py-2 rounded-lg">Ekle</button>
         </div>
       </div>
 
-      {/* Satış tablosu */}
+      {/* Satis tablosu */}
       <div className="bg-white rounded-xl shadow p-4 mb-6">
-        <h3 className="font-bold mb-3">Satışlar ({satislar.length})</h3>
+        <h3 className="font-bold mb-3">Satislar ({satislar.length})</h3>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-gray-500">
-              <th className="py-2">ID</th><th>Tarih</th><th>Kullanıcı</th><th>Ödeme</th><th>Toplam</th><th>Durum</th>
+              <th className="py-2">ID</th><th>Tarih</th><th>Kullanici</th><th>Odeme</th><th>Toplam</th><th>Durum</th>
             </tr>
           </thead>
           <tbody>
@@ -149,7 +166,7 @@ export default function Raporlar() {
                 <td>{formatTarih(s.tarih)}</td>
                 <td>{s.kullanici_ad}</td>
                 <td>{s.odeme_tipi}</td>
-                <td className="font-medium">{s.toplam.toFixed(2)} ₺</td>
+                <td className="font-medium">{s.toplam.toFixed(2)} TL</td>
                 <td className={s.durum === 'tamamlandi' ? 'text-green-600' : 'text-red-500'}>{s.durum}</td>
               </tr>
             ))}
@@ -163,12 +180,12 @@ export default function Raporlar() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-gray-500">
-              <th className="py-2">ID</th><th>Tarih</th><th>Tip</th><th>Kategori</th><th>Açıklama</th><th>Miktar</th>
+              <th className="py-2">ID</th><th>Tarih</th><th>Tip</th><th>Kategori</th><th>Aciklama</th><th>Miktar</th>
             </tr>
           </thead>
           <tbody>
             {gelirGider.length === 0 ? (
-              <tr><td colSpan={6} className="py-4 text-center text-gray-400">Bu tarih aralığında gelir/gider kaydı yok</td></tr>
+              <tr><td colSpan={6} className="py-4 text-center text-gray-400">Bu tarih araliginda gelir/gider kaydi yok</td></tr>
             ) : (
               gelirGider.map(g => (
                 <tr key={g.id} className="border-b hover:bg-gray-50">
@@ -180,7 +197,7 @@ export default function Raporlar() {
                   <td>{g.kategori || '-'}</td>
                   <td>{g.aciklama || '-'}</td>
                   <td className={g.tip === 'gelir' ? 'text-green-600 font-medium' : 'text-red-500 font-medium'}>
-                    {g.tip === 'gelir' ? '+' : '-'}{g.miktar.toFixed(2)} ₺
+                    {g.tip === 'gelir' ? '+' : '-'}{g.miktar.toFixed(2)} TL
                   </td>
                 </tr>
               ))

@@ -23,6 +23,5 @@ tauri-plugin-log = "2"
 rusqlite = { version = "0.32", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
 sha2 = "0.10"
-rfd = "0.14"
 tauri-plugin-dialog = "2"
 # chrono ve uuid suan kullanilmiyor — sadelestirildi

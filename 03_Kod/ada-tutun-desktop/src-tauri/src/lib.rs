@@ -737,19 +737,14 @@ fn get_gelir_gider(
 // === EXCEL/CSV EXPORT ===
 
 #[tauri::command]
-fn export_satislar_csv(
+fn export_satislar_csv_yol(
     db: tauri::State<DbState>,
     baslangic: String,
     bitis: String,
+    hedef_yol: String,
 ) -> Result<String, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    
-    // Dosya kaydetme diyaloğu
-    let file_path = rfd::FileDialog::new()
-        .set_file_name(&format!("satislar_{}_{}.csv", baslangic, bitis))
-        .add_filter("CSV / Excel", &["csv"])
-        .save_file()
-        .ok_or("Dosya secimi iptal edildi")?;
+    let file_path = std::path::PathBuf::from(&hedef_yol);
     
     let mut stmt = conn.prepare(
         "SELECT s.id, s.tarih, k.ad, s.ara_toplam, s.indirim, s.toplam, s.odeme_tipi, s.durum
@@ -887,11 +882,31 @@ fn get_kategoriler(db: tauri::State<DbState>) -> Result<Vec<(i64, String)>, Stri
 #[tauri::command]
 fn shift_ac(db: tauri::State<DbState>, kullanici_id: i64, acilis_kasa: f64) -> Result<i64, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
+    // Onceki acik shifti kapat
+    conn.execute(
+        "UPDATE shiftler SET durum='kapali', bitis=datetime('now', 'localtime') WHERE kullanici_id=?1 AND durum='acik'",
+        rusqlite::params![kullanici_id],
+    ).map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO shiftler (kullanici_id, acilis_kasa) VALUES (?1, ?2)",
         rusqlite::params![kullanici_id, acilis_kasa],
     ).map_err(|e| e.to_string())?;
     Ok(conn.last_insert_rowid())
+}
+
+#[tauri::command]
+fn get_aktif_shift(db: tauri::State<DbState>, kullanici_id: i64) -> Result<Option<i64>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let result = conn.query_row(
+        "SELECT id FROM shiftler WHERE kullanici_id=?1 AND durum='acik' ORDER BY id DESC LIMIT 1",
+        rusqlite::params![kullanici_id],
+        |row| row.get(0),
+    );
+    match result {
+        Ok(id) => Ok(Some(id)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 #[tauri::command]
@@ -907,40 +922,21 @@ fn shift_kapat(db: tauri::State<DbState>, shift_id: i64, kapanis_kasa: f64) -> R
 // === YEDEKLEME ===
 
 #[tauri::command]
-fn db_yedekle(db: tauri::State<DbState>) -> Result<String, String> {
-    let file_path = rfd::FileDialog::new()
-        .set_file_name(&format!("ada_tutun_yedek_{}.db", chrono::Local::now().format("%Y%m%d_%H%M%S")))
-        .add_filter("SQLite DB", &["db"])
-        .save_file()
-        .ok_or("Dosya secimi iptal edildi")?;
-    
+fn db_yedekle_yol(db: tauri::State<DbState>, hedef_yol: String) -> Result<String, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-
-    // SQLite backup API kullan
+    let file_path = std::path::PathBuf::from(&hedef_yol);
     conn.execute(&format!("VACUUM INTO '{}'", file_path.to_string_lossy()), [])
         .map_err(|e| format!("Yedekleme hatasi: {}", e))?;
-    
     Ok(file_path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
-fn db_geri_yukle(db: tauri::State<DbState>) -> Result<String, String> {
-    let file_path = rfd::FileDialog::new()
-        .set_file_name("ada_tutun_yedek.db")
-        .add_filter("SQLite DB", &["db"])
-        .pick_file()
-        .ok_or("Dosya secimi iptal edildi")?;
-    
+fn db_geri_yukle_yol(_db: tauri::State<DbState>, kaynak_yol: String) -> Result<String, String> {
     let db_path = std::env::current_dir().unwrap_or_default().join("ada_tutun.db");
-    
-    // Once mevcut DB'yi yedekle (guvenlik)
     let backup_name = format!("ada_tutun_otomatik_yedek_{}.db", chrono::Local::now().format("%Y%m%d_%H%M%S"));
     let backup_path = db_path.with_file_name(&backup_name);
     std::fs::copy(&db_path, &backup_path).map_err(|e| format!("Otomatik yedek hatasi: {}", e))?;
-    
-    // Yedek dosyasini kopyala
-    std::fs::copy(&file_path, &db_path).map_err(|e| format!("Geri yukleme hatasi: {}", e))?;
-    
+    std::fs::copy(&kaynak_yol, &db_path).map_err(|e| format!("Geri yukleme hatasi: {}", e))?;
     Ok(format!("Geri yuklendi. Otomatik yedek: {}", backup_path.to_string_lossy()))
 }
 
@@ -975,13 +971,14 @@ pub fn run() {
             get_rapor,
             gelir_gider_ekle,
             get_gelir_gider,
-            export_satislar_csv,
+            export_satislar_csv_yol,
             get_stok_hareketleri,
             get_kategoriler,
             shift_ac,
             shift_kapat,
-            db_yedekle,
-            db_geri_yukle,
+            get_aktif_shift,
+            db_yedekle_yol,
+            db_geri_yukle_yol,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

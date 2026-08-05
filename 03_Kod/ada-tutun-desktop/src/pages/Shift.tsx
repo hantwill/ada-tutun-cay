@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { save, open } from '@tauri-apps/plugin-dialog'
 import { useStore } from '../store'
 
 export default function Shift() {
@@ -12,8 +13,9 @@ export default function Shift() {
 
   const yukle = async () => {
     try {
-      const hareketler = await invoke<any[]>('get_stok_hareketleri', { limit: 5 })
-      setGecmis(hareketler)
+      // Aktif shift kontrolu — Rust'tan sorgula
+      const id = await invoke<number | null>('get_aktif_shift', { kullaniciId: kullanici?.id })
+      setAktifShift(id)
     } catch (e) { console.error(e) }
   }
 
@@ -45,29 +47,47 @@ export default function Shift() {
 
   const yedekle = async () => {
     try {
-      const path = await invoke<string>('db_yedekle')
-      setMesaj(`Yedeklendi: ${path}`)
+      // Tauri dialog ile kaydetme yeri sec
+      const path = await save({
+        title: 'Veritabani yedegi kaydet',
+        defaultPath: `ada_tutun_yedek_${new Date().toISOString().split('T')[0]}.db`,
+        filters: [{ name: 'SQLite DB', extensions: ['db'] }]
+      })
+      if (!path) return
+
+      // Rust'a yolu gonder
+      const result = await invoke<string>('db_yedekle_yol', { hedefYol: path })
+      setMesaj(`Yedeklendi: ${result}`)
       setTimeout(() => setMesaj(''), 5000)
     } catch (e) {
-      if (String(e) !== 'Dosya secimi iptal edildi') setMesaj(`Hata: ${e}`)
+      setMesaj(`Hata: ${e}`)
+      setTimeout(() => setMesaj(''), 5000)
     }
   }
 
   const geriYukle = async () => {
     if (!confirm('Geri yukleme mevcut verilerin uzerine yazacak. Once otomatik yedek alinacak. Devam?')) return
     try {
-      const msg = await invoke<string>('db_geri_yukle')
+      // Tauri dialog ile dosya sec
+      const path = await open({
+        title: 'Yedek dosyasi sec',
+        filters: [{ name: 'SQLite DB', extensions: ['db'] }]
+      })
+      if (!path || Array.isArray(path)) return
+
+      const msg = await invoke<string>('db_geri_yukle_yol', { kaynakYol: path })
       setMesaj(msg)
       setTimeout(() => setMesaj(''), 5000)
     } catch (e) {
-      if (String(e) !== 'Dosya secimi iptal edildi') setMesaj(`Hata: ${e}`)
+      setMesaj(`Hata: ${e}`)
+      setTimeout(() => setMesaj(''), 5000)
     }
   }
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">Shift Yönetimi</h2>
-      
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">Shift Yonetimi</h2>
+
       <div className="grid grid-cols-2 gap-4">
         {/* Aktif Shift */}
         <div className="bg-white rounded-xl shadow p-6">
@@ -75,10 +95,10 @@ export default function Shift() {
           {aktifShift ? (
             <div className="space-y-4">
               <div className="bg-green-50 p-4 rounded-lg">
-                <p className="text-green-700 font-medium">Shift #{aktifShift} açık</p>
+                <p className="text-green-700 font-medium">Shift #{aktifShift} acik</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Kapanış Kasası (₺)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Kapanis Kasasi (TL)</label>
                 <input type="number" value={kapanisKasa || ''} onChange={(e) => setKapanisKasa(Number(e.target.value))}
                   className="w-full px-4 py-2 border rounded-lg" placeholder="0.00" />
               </div>
@@ -89,15 +109,15 @@ export default function Shift() {
           ) : (
             <div className="space-y-4">
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-500">Açık shift yok</p>
+                <p className="text-gray-500">Acik shift yok</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Açılış Kasası (₺)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Acilis Kasasi (TL)</label>
                 <input type="number" value={acilisKasa || ''} onChange={(e) => setAcilisKasa(Number(e.target.value))}
                   className="w-full px-4 py-2 border rounded-lg" placeholder="0.00" />
               </div>
               <button onClick={shiftAc} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg">
-                Shift Aç
+                Shift Ac
               </button>
             </div>
           )}
@@ -106,10 +126,10 @@ export default function Shift() {
 
         {/* Bilgi */}
         <div className="bg-white rounded-xl shadow p-6">
-          <h3 className="font-bold text-lg mb-4">Kullanıcı Bilgisi</h3>
+          <h3 className="font-bold text-lg mb-4">Kullanici Bilgisi</h3>
           <div className="space-y-2">
             <div className="flex justify-between"><span className="text-gray-500">Ad:</span><span className="font-medium">{kullanici?.ad}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Kullanıcı:</span><span className="font-medium">{kullanici?.kullanici_ad}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">Kullanici:</span><span className="font-medium">{kullanici?.kullanici_ad}</span></div>
             <div className="flex justify-between"><span className="text-gray-500">Rol:</span><span className="font-medium">{kullanici?.rol}</span></div>
           </div>
         </div>
