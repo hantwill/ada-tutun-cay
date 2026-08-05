@@ -90,6 +90,18 @@ pub struct GelirGiderKayit {
     pub tarih: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ShiftGecmis {
+    pub id: i64,
+    pub kullanici_ad: String,
+    pub acilis_kasa: f64,
+    pub kapanis_kasa: Option<f64>,
+    pub toplam_satis: Option<f64>,
+    pub acilis_tarih: String,
+    pub bitis: Option<String>,
+    pub durum: String,
+}
+
 // === DB INIT ===
 fn init_db(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute_batch("PRAGMA foreign_keys = ON;")?;
@@ -910,6 +922,34 @@ fn get_aktif_shift(db: tauri::State<DbState>, kullanici_id: i64) -> Result<Optio
 }
 
 #[tauri::command]
+fn get_shift_gecmis(db: tauri::State<DbState>) -> Result<Vec<ShiftGecmis>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT s.id, k.ad, s.acilis_kasa, s.kapanis_kasa, s.toplam_satis,
+                s.acilis_tarih, s.bitis, s.durum
+         FROM shiftler s JOIN kullanicilar k ON s.kullanici_id = k.id
+         ORDER BY s.id DESC LIMIT 50"
+    ).map_err(|e| e.to_string())?;
+
+    let gecmis = stmt.query_map([], |row| {
+        Ok(ShiftGecmis {
+            id: row.get(0)?,
+            kullanici_ad: row.get(1)?,
+            acilis_kasa: row.get(2)?,
+            kapanis_kasa: row.get(3)?,
+            toplam_satis: row.get(4)?,
+            acilis_tarih: row.get(5)?,
+            bitis: row.get(6)?,
+            durum: row.get(7)?,
+        })
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+
+    Ok(gecmis)
+}
+
+#[tauri::command]
 fn shift_kapat(db: tauri::State<DbState>, shift_id: i64, kapanis_kasa: f64) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
@@ -977,6 +1017,7 @@ pub fn run() {
             shift_ac,
             shift_kapat,
             get_aktif_shift,
+            get_shift_gecmis,
             db_yedekle_yol,
             db_geri_yukle_yol,
         ])

@@ -2,6 +2,18 @@ import { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { save, open } from '@tauri-apps/plugin-dialog'
 import { useStore } from '../store'
+import { formatTarih } from '../tarih'
+
+interface ShiftGecmisItem {
+  id: number
+  kullanici_ad: string
+  acilis_kasa: number
+  kapanis_kasa: number | null
+  toplam_satis: number | null
+  acilis_tarih: string
+  bitis: string | null
+  durum: string
+}
 
 export default function Shift() {
   const { kullanici } = useStore()
@@ -9,13 +21,17 @@ export default function Shift() {
   const [kapanisKasa, setKapanisKasa] = useState(0)
   const [aktifShift, setAktifShift] = useState<number | null>(null)
   const [mesaj, setMesaj] = useState('')
-  const [gecmis, setGecmis] = useState<any[]>([])
+  const [gecmis, setGecmis] = useState<ShiftGecmisItem[]>([])
+  const isAdmin = kullanici?.rol === 'admin'
 
   const yukle = async () => {
     try {
-      // Aktif shift kontrolu — Rust'tan sorgula
       const id = await invoke<number | null>('get_aktif_shift', { kullaniciId: kullanici?.id })
       setAktifShift(id)
+      if (isAdmin) {
+        const g = await invoke<ShiftGecmisItem[]>('get_shift_gecmis')
+        setGecmis(g)
+      }
     } catch (e) { console.error(e) }
   }
 
@@ -30,6 +46,7 @@ export default function Shift() {
       setAktifShift(id)
       setMesaj(`Shift acildi #${id}, acilis kasasi: ${acilisKasa} TL`)
       setTimeout(() => setMesaj(''), 3000)
+      yukle()
     } catch (e) { setMesaj(`Hata: ${e}`) }
   }
 
@@ -42,20 +59,18 @@ export default function Shift() {
       setAcilisKasa(0)
       setKapanisKasa(0)
       setTimeout(() => setMesaj(''), 3000)
+      yukle()
     } catch (e) { setMesaj(`Hata: ${e}`) }
   }
 
   const yedekle = async () => {
     try {
-      // Tauri dialog ile kaydetme yeri sec
       const path = await save({
         title: 'Veritabani yedegi kaydet',
         defaultPath: `ada_tutun_yedek_${new Date().toISOString().split('T')[0]}.db`,
         filters: [{ name: 'SQLite DB', extensions: ['db'] }]
       })
       if (!path) return
-
-      // Rust'a yolu gonder
       const result = await invoke<string>('db_yedekle_yol', { hedefYol: path })
       setMesaj(`Yedeklendi: ${result}`)
       setTimeout(() => setMesaj(''), 5000)
@@ -68,13 +83,11 @@ export default function Shift() {
   const geriYukle = async () => {
     if (!confirm('Geri yukleme mevcut verilerin uzerine yazacak. Once otomatik yedek alinacak. Devam?')) return
     try {
-      // Tauri dialog ile dosya sec
       const path = await open({
         title: 'Yedek dosyasi sec',
         filters: [{ name: 'SQLite DB', extensions: ['db'] }]
       })
       if (!path || Array.isArray(path)) return
-
       const msg = await invoke<string>('db_geri_yukle_yol', { kaynakYol: path })
       setMesaj(msg)
       setTimeout(() => setMesaj(''), 5000)
@@ -135,18 +148,63 @@ export default function Shift() {
         </div>
       </div>
 
-      {/* Yedekleme */}
-      <div className="bg-white rounded-xl shadow p-6 mt-4">
-        <h3 className="font-bold text-lg mb-4">Veritabani Yedekleme</h3>
-        <div className="flex gap-3">
-          <button onClick={yedekle} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium">
-            DB Yedekle
-          </button>
-          <button onClick={geriYukle} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium">
-            DB Geri Yukle
-          </button>
+      {/* Shift Gecmisi — SADECE ADMIN */}
+      {isAdmin && (
+        <div className="bg-white rounded-xl shadow p-6 mt-4">
+          <h3 className="font-bold text-lg mb-4">Shift Gecmisi (Son 50)</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-gray-500">
+                  <th className="py-2">ID</th>
+                  <th>Kullanici</th>
+                  <th>Acilis</th>
+                  <th>Acilis Kasa</th>
+                  <th>Kapanis Kasa</th>
+                  <th>Toplam Satis</th>
+                  <th>Bitis</th>
+                  <th>Durum</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gecmis.length === 0 ? (
+                  <tr><td colSpan={8} className="py-4 text-center text-gray-400">Shift kaydi yok</td></tr>
+                ) : (
+                  gecmis.map(s => (
+                    <tr key={s.id} className="border-b hover:bg-gray-50">
+                      <td className="py-2">#{s.id}</td>
+                      <td>{s.kullanici_ad}</td>
+                      <td>{formatTarih(s.acilis_tarih)}</td>
+                      <td>{s.acilis_kasa.toFixed(2)} TL</td>
+                      <td>{s.kapanis_kasa != null ? `${s.kapanis_kasa.toFixed(2)} TL` : '-'}</td>
+                      <td>{s.toplam_satis != null ? `${s.toplam_satis.toFixed(2)} TL` : '-'}</td>
+                      <td>{s.bitis ? formatTarih(s.bitis) : '-'}</td>
+                      <td className={s.durum === 'acik' ? 'text-green-600 font-medium' : 'text-gray-500'}>
+                        {s.durum === 'acik' ? 'Acik' : 'Kapali'}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Yedekleme — SADECE ADMIN */}
+      {isAdmin && (
+        <div className="bg-white rounded-xl shadow p-6 mt-4">
+          <h3 className="font-bold text-lg mb-4">Veritabani Yedekleme</h3>
+          <div className="flex gap-3">
+            <button onClick={yedekle} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium">
+              DB Yedekle
+            </button>
+            <button onClick={geriYukle} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium">
+              DB Geri Yukle
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
