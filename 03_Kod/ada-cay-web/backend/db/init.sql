@@ -93,10 +93,9 @@ INSERT INTO kategoriler (ad, siralama) VALUES
     ('Atıştırmalıklar', 5)
 ON CONFLICT (ad) DO NOTHING;
 
--- Default admin (ilk açılışta backend rastgele şifre üretir, log'a yazar)
--- Bu kayıt sadece DB boşsa eklenir, şifre_hash boş → backend ilk başlatmada doldurur
+-- Default admin (şifre: admin123, bcrypt hash)
 INSERT INTO kullanicilar (kullanici_ad, ad, rol, sifre_hash) VALUES
-    ('admin', 'Yönetici', 'admin', 'PENDING_INIT')
+    ('admin', 'Yönetici', 'admin', '$2b$12$8EiOWX4DRk/pb5EvSqi6k.oKfREVTwhMjEFYWiN93vDxyWzigJK9S')
 ON CONFLICT (kullanici_ad) DO NOTHING;
 
 -- Default masalar

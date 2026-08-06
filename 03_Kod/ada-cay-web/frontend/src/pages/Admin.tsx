@@ -72,6 +72,7 @@ export default function Admin() {
   const [raporBaslangic, setRaporBaslangic] = useState(bugunISO())
   const [raporBitis, setRaporBitis] = useState(bugunISO())
   const [mesaj, setMesaj] = useState('')
+  const [silOnay, setSilOnay] = useState<{ id: number; ad: string; tip: string } | null>(null)
 
   const mesajGoster = (m: string) => { setMesaj(m); setTimeout(() => setMesaj(''), 2500) }
 
@@ -215,10 +216,8 @@ export default function Admin() {
                       try { await apiPut(`/admin/garsonlar/${g.id}`, { ad: g.ad, rol: g.rol, aktif: !g.aktif }, token || undefined); yukle()
                       } catch (e: any) { mesajGoster(String(e.message || e)) }
                     }} className="text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300">{g.aktif ? 'Pasif' : 'Aktif'}</button>
-                    <button onClick={async () => { if (!confirm('Sil?')) return
-                      try { await apiDelete(`/admin/garsonlar/${g.id}`, token || undefined); mesajGoster('Silindi'); yukle()
-                      } catch (e: any) { mesajGoster(String(e.message || e)) }
-                    }} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">Sil</button>
+                    <button onClick={() => setSilOnay({ id: g.id, ad: g.ad, tip: 'garson' })}
+                      className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">Sil</button>
                   </td>
                 </tr>
               ))}
@@ -294,11 +293,8 @@ export default function Admin() {
                         } catch (e: any) { mesajGoster(String(e.message || e)) }
                       })()
                     }} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200">Düzenle</button>
-                    <button onClick={async () => {
-                      if (!window.confirm('Bu ürünü silmek istediğine emin misin?')) return
-                      try { await apiDelete(`/admin/urunler/${u.id}`, token || undefined); mesajGoster('Silindi'); yukleUrunler()
-                      } catch (e: any) { mesajGoster(String(e.message || e)) }
-                    }} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">Sil</button>
+                    <button onClick={() => setSilOnay({ id: u.id, ad: u.ad, tip: 'urun' })}
+                      className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">Sil</button>
                   </td>
                 </tr>
               ))}
@@ -380,10 +376,8 @@ export default function Admin() {
                   <td className={`p-3 font-semibold ${g.tip === 'gelir' ? 'text-green-700' : 'text-red-700'}`}>{g.miktar} ₺</td>
                   <td className="p-3 text-sm text-gray-500">{new Date(g.tarih).toLocaleString('tr-TR')}</td>
                   <td className="p-3">
-                    <button onClick={async () => {
-                      try { await apiDelete(`/admin/gelir-gider/${g.id}`, token || undefined); mesajGoster('Silindi'); yukleGelirGider()
-                      } catch (e: any) { mesajGoster(String(e.message || e)) }
-                    }} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">Sil</button>
+                    <button onClick={() => setSilOnay({ id: g.id, ad: g.aciklama || g.kategori || 'kayıt', tip: 'gelir-gider' })}
+                      className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">Sil</button>
                   </td>
                 </tr>
               ))}
@@ -503,5 +497,38 @@ export default function Admin() {
     )
   }
 
-  return null
+  return (
+    <>
+      {silOnay && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Silme Onayı</h3>
+            <p className="text-gray-600 mb-1">"<span className="font-semibold">{silOnay.ad}</span>" silinecek.</p>
+            <p className="text-sm text-gray-400 mb-6">Bu işlem geri alınamaz.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setSilOnay(null)}
+                className="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300">Vazgeç</button>
+              <button onClick={async () => {
+                try {
+                  if (silOnay.tip === 'urun') {
+                    await apiDelete(`/admin/urunler/${silOnay.id}`, token || undefined)
+                    mesajGoster('Ürün silindi'); yukleUrunler()
+                  } else if (silOnay.tip === 'garson') {
+                    await apiDelete(`/admin/garsonlar/${silOnay.id}`, token || undefined)
+                    mesajGoster('Kullanıcı silindi'); yukle()
+                  } else if (silOnay.tip === 'gelir-gider') {
+                    await apiDelete(`/admin/gelir-gider/${silOnay.id}`, token || undefined)
+                    mesajGoster('Kayıt silindi'); yukleGelirGider()
+                  }
+                } catch (e: any) { mesajGoster(String(e.message || e)) }
+                setSilOnay(null)
+              }}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700">Sil</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {mesaj && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-3 rounded-full text-sm z-50">{mesaj}</div>}
+    </>
+  )
 }
