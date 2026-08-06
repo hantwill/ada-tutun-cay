@@ -235,6 +235,8 @@ export default function Admin() {
     return (
       <div className="p-4 sm:p-6">
         <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6">🍽️ Ürünler</h1>
+
+        {/* Yeni ürün ekleme */}
         <div className="bg-white rounded-xl p-4 sm:p-6 shadow mb-4 sm:mb-6">
           <h2 className="font-semibold mb-4">Yeni Ürün</h2>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -259,24 +261,41 @@ export default function Admin() {
             }} className="bg-amber-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-amber-700">Ekle</button>
           </div>
         </div>
+
+        {/* Ürün listesi — düzenle + sil */}
         <div className="bg-white rounded-xl shadow overflow-x-auto">
           <table className="w-full min-w-[500px]">
             <thead className="bg-gray-100"><tr>
               <th className="text-left p-3">Ürün</th><th className="text-left p-3">Kategori</th>
-              <th className="text-left p-3">Fiyat</th><th className="text-left p-3">Durum</th><th className="text-left p-3">İşlem</th>
+              <th className="text-left p-3">Fiyat</th><th className="text-left p-3">İşlem</th>
             </tr></thead>
             <tbody>
               {urunler.map((u) => (
                 <tr key={u.id} className="border-b hover:bg-gray-50">
-                  <td className="p-3 font-medium">{u.ad}</td><td className="p-3">{u.kategori_ad || '-'}</td>
+                  <td className="p-3 font-medium">{u.ad}</td>
+                  <td className="p-3">{u.kategori_ad || '-'}</td>
                   <td className="p-3 font-semibold text-amber-700">{u.fiyat} ₺</td>
-                  <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs ${u.aktif ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{u.aktif ? 'Aktif' : 'Pasif'}</span></td>
                   <td className="p-3 flex gap-1">
-                    <button onClick={async () => { const { apiPut } = await import('../store')
-                      try { await apiPut(`/admin/urunler/${u.id}`, { ad: u.ad, kategoriId: u.kategori_id, fiyat: parseFloat(u.fiyat), aktif: !u.aktif }, token || undefined); yukleUrunler()
-                      } catch (e: any) { mesajGoster(String(e.message || e)) }
-                    }} className="text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300">{u.aktif ? 'Pasif' : 'Aktif'}</button>
-                    <button onClick={async () => { if (!confirm('Sil?')) return
+                    <button onClick={() => {
+                      const yeniAd = prompt('Ürün adı:', u.ad)
+                      if (yeniAd === null) return
+                      const yeniFiyat = prompt('Fiyat:', u.fiyat)
+                      if (yeniFiyat === null) return
+                      const yeniKat = prompt('Kategori ID (boş=bırak):', u.kategori_id ? String(u.kategori_id) : '')
+                      ;(async () => {
+                        try { const { apiPut } = await import('../store')
+                          await apiPut(`/admin/urunler/${u.id}`, {
+                            ad: yeniAd || u.ad,
+                            kategoriId: yeniKat ? parseInt(yeniKat) : null,
+                            fiyat: parseFloat(yeniFiyat) || parseFloat(u.fiyat),
+                            aktif: true
+                          }, token || undefined)
+                          mesajGoster('Düzenlendi ✓'); yukleUrunler()
+                        } catch (e: any) { mesajGoster(String(e.message || e)) }
+                      })()
+                    }} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200">Düzenle</button>
+                    <button onClick={async () => {
+                      if (!window.confirm('Bu ürünü silmek istediğine emin misin?')) return
                       try { await apiDelete(`/admin/urunler/${u.id}`, token || undefined); mesajGoster('Silindi'); yukleUrunler()
                       } catch (e: any) { mesajGoster(String(e.message || e)) }
                     }} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">Sil</button>
