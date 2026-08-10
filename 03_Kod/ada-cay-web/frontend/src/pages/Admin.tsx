@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useStore, apiGet, apiPost, apiDelete } from '../store'
+import { useStore, apiGet, apiPost, apiPut, apiDelete } from '../store'
 
 interface DashboardData {
   bugun_satis: number
@@ -73,6 +73,7 @@ export default function Admin() {
   const [raporBitis, setRaporBitis] = useState(bugunISO())
   const [mesaj, setMesaj] = useState('')
   const [silOnay, setSilOnay] = useState<{ id: number; ad: string; tip: string } | null>(null)
+  const [editUrun, setEditUrun] = useState<Urun | null>(null)
 
   const mesajGoster = (m: string) => { setMesaj(m); setTimeout(() => setMesaj(''), 2500) }
 
@@ -304,24 +305,8 @@ export default function Admin() {
                   <td className="p-3">{u.kategori_ad || '-'}</td>
                   <td className="p-3 font-semibold text-amber-700">{u.fiyat} ₺</td>
                   <td className="p-3 flex gap-1">
-                    <button onClick={() => {
-                      const yeniAd = prompt('Ürün adı:', u.ad)
-                      if (yeniAd === null) return
-                      const yeniFiyat = prompt('Fiyat:', u.fiyat)
-                      if (yeniFiyat === null) return
-                      const yeniKat = prompt('Kategori ID (boş=bırak):', u.kategori_id ? String(u.kategori_id) : '')
-                      ;(async () => {
-                        try { const { apiPut } = await import('../store')
-                          await apiPut(`/admin/urunler/${u.id}`, {
-                            ad: yeniAd || u.ad,
-                            kategoriId: yeniKat ? parseInt(yeniKat) : null,
-                            fiyat: parseFloat(yeniFiyat) || parseFloat(u.fiyat),
-                            aktif: true
-                          }, token || undefined)
-                          mesajGoster('Düzenlendi ✓'); yukleUrunler()
-                        } catch (e: any) { mesajGoster(String(e.message || e)) }
-                      })()
-                    }} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200">Düzenle</button>
+                    <button onClick={() => setEditUrun(u)}
+                      className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200">Düzenle</button>
                     <button onClick={() => setSilOnay({ id: u.id, ad: u.ad, tip: 'urun' })}
                       className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">Sil</button>
                   </td>
@@ -356,6 +341,53 @@ export default function Admin() {
                   setSilOnay(null)
                 }}
                   className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700">Sil</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {editUrun && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">Ürün Düzenle</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-gray-500">Ürün Adı</label>
+                  <input type="text" value={editUrun.ad}
+                    onChange={(e) => setEditUrun({ ...editUrun, ad: e.target.value })}
+                    className="block w-full px-3 py-2 rounded-lg border outline-none focus:ring-2 focus:ring-amber-500" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Kategori</label>
+                  <select value={editUrun.kategori_id ?? ''}
+                    onChange={(e) => setEditUrun({ ...editUrun, kategori_id: e.target.value ? parseInt(e.target.value) : null })}
+                    className="block w-full px-3 py-2 rounded-lg border outline-none focus:ring-2 focus:ring-amber-500">
+                    <option value="">Kategori Seç</option>
+                    {kategoriler.map((k) => <option key={k.id} value={k.id}>{k.ad}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Fiyat (₺)</label>
+                  <input type="number" step="0.01" value={editUrun.fiyat}
+                    onChange={(e) => setEditUrun({ ...editUrun, fiyat: e.target.value })}
+                    className="block w-full px-3 py-2 rounded-lg border outline-none focus:ring-2 focus:ring-amber-500" />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setEditUrun(null)}
+                  className="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300">Vazgeç</button>
+                <button onClick={async () => {
+                  if (!editUrun) return
+                  try {
+                    await apiPut(`/admin/urunler/${editUrun.id}`, {
+                      ad: editUrun.ad,
+                      kategoriId: editUrun.kategori_id ?? null,
+                      fiyat: parseFloat(editUrun.fiyat) || 0,
+                      aktif: editUrun.aktif
+                    }, token || undefined)
+                    mesajGoster('Düzenlendi ✓'); setEditUrun(null); yukleUrunler()
+                  } catch (e: any) { mesajGoster(String(e.message || e)) }
+                }}
+                  className="flex-1 px-4 py-2 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-700">Kaydet</button>
               </div>
             </div>
           </div>
