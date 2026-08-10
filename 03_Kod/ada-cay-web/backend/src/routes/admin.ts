@@ -116,7 +116,11 @@ router.post('/urunler', async (req, res) => {
       [ad, kategoriId, fiyat]
     );
     res.json(result.rows[0]);
-  } catch {
+  } catch (err: any) {
+    if (err.code === '23505') {
+      return res.status(409).json({ hata: 'Bu ürün adı zaten aktif olarak mevcut' });
+    }
+    console.error('Ürün ekleme hatası:', err);
     res.status(500).json({ hata: 'Sunucu hatası' });
   }
 });

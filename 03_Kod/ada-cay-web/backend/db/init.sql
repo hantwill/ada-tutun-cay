@@ -36,8 +36,7 @@ CREATE TABLE IF NOT EXISTS urunler (
     kategori_id INTEGER REFERENCES kategoriler(id) ON DELETE SET NULL,
     fiyat DECIMAL(10,2) NOT NULL DEFAULT 0 CHECK (fiyat >= 0),
     aktif BOOLEAN DEFAULT true,
-    olusturma_tarih TIMESTAMP DEFAULT NOW(),
-    UNIQUE(ad, kategori_id)
+    olusturma_tarih TIMESTAMP DEFAULT NOW()
 );
 
 -- Adisyonlar
@@ -84,6 +83,9 @@ CREATE INDEX IF NOT EXISTS idx_urunler_kategori ON urunler(kategori_id);
 -- Masa başına tek açık adisyon (race condition önlemi)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_adisyonlar_masa_acik ON adisyonlar(masa_id) WHERE durum = 'acik';
 
+-- Sadece aktif ürünler için unique (soft-delete sonrası aynı isimle eklenebilsin)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_urunler_ad_kat_aktif ON urunler(ad, kategori_id) WHERE aktif = true;
+
 -- Default veriler
 INSERT INTO kategoriler (ad, siralama) VALUES
     ('Çaylar', 1),
@@ -129,4 +131,4 @@ INSERT INTO urunler (ad, kategori_id, fiyat) VALUES
     ('Künefe', 4, 70.00),
     ('Kuru Pasta', 5, 20.00),
     ('Poğaça', 5, 15.00)
-ON CONFLICT (ad, kategori_id) DO NOTHING;
+ON CONFLICT DO NOTHING;
