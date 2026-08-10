@@ -57,9 +57,8 @@ export async function apiGet(path: string, token?: string) {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
   if (res.status === 401) {
-    localStorage.removeItem('token')
-    localStorage.removeItem('kullanici')
-    window.location.reload()
+    useStore.getState().logout()
+    throw new Error('Oturum süresi doldu')
   }
   if (!res.ok) {
     const txt = await res.text()
@@ -78,9 +77,8 @@ export async function apiPost(path: string, body: any, token?: string) {
     body: JSON.stringify(body),
   })
   if (res.status === 401 && !path.includes('/login')) {
-    localStorage.removeItem('token')
-    localStorage.removeItem('kullanici')
-    window.location.reload()
+    useStore.getState().logout()
+    throw new Error('Oturum süresi doldu')
   }
   if (!res.ok) {
     const txt = await res.text()
@@ -99,9 +97,8 @@ export async function apiPut(path: string, body: any, token?: string) {
     body: JSON.stringify(body),
   })
   if (res.status === 401) {
-    localStorage.removeItem('token')
-    localStorage.removeItem('kullanici')
-    window.location.reload()
+    useStore.getState().logout()
+    throw new Error('Oturum süresi doldu')
   }
   if (!res.ok) {
     const txt = await res.text()
@@ -116,9 +113,8 @@ export async function apiDelete(path: string, token?: string) {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
   if (res.status === 401) {
-    localStorage.removeItem('token')
-    localStorage.removeItem('kullanici')
-    window.location.reload()
+    useStore.getState().logout()
+    throw new Error('Oturum süresi doldu')
   }
   if (!res.ok) {
     const txt = await res.text()

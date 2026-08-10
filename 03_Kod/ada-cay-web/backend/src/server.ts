@@ -141,10 +141,9 @@ async function start() {
       if (retries > 0) await new Promise(r => setTimeout(r, 3000));
     }
   }
-  // DB yoksa yine de başlat
-  server.listen(PORT, () => {
-    console.log(`⚠️ Ada Çay Evi server (DB'siz): http://localhost:${PORT}`);
-  });
+  // DB bağlanamazsa güvenlik için başlatma
+  console.error('❌ DB bağlantısı başarısız — server başlatılmıyor');
+  process.exit(1);
 }
 
 start();

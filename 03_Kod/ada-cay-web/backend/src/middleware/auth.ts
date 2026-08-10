@@ -44,10 +44,8 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       cached = { rol: result.rows[0].rol, aktif: result.rows[0].aktif, ts: now };
       userCache.set(payload.id, cached);
     } catch {
-      // DB hatası — token payload güvenli fallback
-      req.user = { id: payload.id, kullanici_ad: payload.kullanici_ad, ad: payload.ad, rol: payload.rol };
-      next();
-      return;
+      // DB hatası — fail-closed (güvenlik: erişim verme)
+      return res.status(503).json({ hata: 'Kimlik doğrulama servisi geçici olarak kullanılamıyor' });
     }
   }
 

@@ -1,8 +1,16 @@
-# Dependencies
+# Environment variables
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+
+# Node
 node_modules/
-target/
 dist/
-build/
+
+# Docker
+docker-compose.override.yml
 
 # IDE
 .vscode/
@@ -14,32 +22,5 @@ build/
 .DS_Store
 Thumbs.db
 
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Database
-*.db
-*.db-journal
-*.sqlite
-*.sqlite3
-
 # Logs
 *.log
-npm-debug.log*
-
-# Build artifacts
-*.exe
-*.deb
-*.dmg
-*.app
-
-# Cache
-.cache/
-.parcel-cache/
-.next/
-
-# Obsidian
-.obsidian/workspace*
-.trash/

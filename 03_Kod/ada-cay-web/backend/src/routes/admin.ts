@@ -58,6 +58,12 @@ router.post('/garsonlar', async (req, res) => {
   if (!kullanici_ad || !ad || !sifre) {
     return res.status(400).json({ hata: 'kullanici_ad, ad ve sifre gerekli' });
   }
+  if (sifre.length < 6) {
+    return res.status(400).json({ hata: 'Şifre en az 6 karakter olmalı' });
+  }
+  if (rol && !['admin', 'garson'].includes(rol)) {
+    return res.status(400).json({ hata: 'Rol sadece admin veya garson olabilir' });
+  }
   try {
     const result = await pool.query(
       'INSERT INTO kullanicilar (kullanici_ad, ad, rol, sifre_hash) VALUES ($1, $2, $3, $4) RETURNING id, kullanici_ad, ad, rol, aktif, olusturma_tarih',
@@ -68,6 +74,7 @@ router.post('/garsonlar', async (req, res) => {
     if (err.code === '23505') {
       return res.status(400).json({ hata: 'Bu kullanıcı adı zaten kayıtlı' });
     }
+    console.error('Garson ekleme hatası:', err);
     res.status(500).json({ hata: 'Sunucu hatası' });
   }
 });
@@ -75,8 +82,20 @@ router.post('/garsonlar', async (req, res) => {
 // Garson güncelle
 router.put('/garsonlar/:id', async (req, res) => {
   const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ hata: 'Geçersiz ID' });
   const { ad, rol, aktif } = req.body;
+  if (rol && !['admin', 'garson'].includes(rol)) {
+    return res.status(400).json({ hata: 'Rol sadece admin veya garson olabilir' });
+  }
   try {
+    // Son admin kendini düşüremeyecek
+    if (rol !== 'admin' || aktif === false) {
+      const adminCount = await pool.query("SELECT COUNT(*) as adet FROM kullanicilar WHERE rol = 'admin' AND aktif = true");
+      const currentUser = await pool.query("SELECT rol FROM kullanicilar WHERE id = $1", [id]);
+      if (currentUser.rows[0]?.rol === 'admin' && parseInt(adminCount.rows[0].adet) <= 1) {
+        return res.status(400).json({ hata: 'Son admin değiştirilemez' });
+      }
+    }
     await pool.query(
       'UPDATE kullanicilar SET ad = $1, rol = $2, aktif = $3 WHERE id = $4',
       [ad, rol, aktif, id]
@@ -90,6 +109,7 @@ router.put('/garsonlar/:id', async (req, res) => {
 // Garson sil
 router.delete('/garsonlar/:id', async (req, res) => {
   const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ hata: 'Geçersiz ID' });
   try {
     // Son admin silinemez
     const adminCount = await pool.query("SELECT COUNT(*) as adet FROM kullanicilar WHERE rol = 'admin' AND aktif = true");
@@ -128,6 +148,7 @@ router.post('/urunler', async (req, res) => {
 // Ürün güncelle
 router.put('/urunler/:id', async (req, res) => {
   const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ hata: 'Geçersiz ID' });
   const { ad, kategoriId, fiyat, aktif } = req.body;
   try {
     await pool.query(
@@ -143,6 +164,7 @@ router.put('/urunler/:id', async (req, res) => {
 // Ürün sil (soft delete)
 router.delete('/urunler/:id', async (req, res) => {
   const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ hata: 'Geçersiz ID' });
   try {
     await pool.query('UPDATE urunler SET aktif = false WHERE id = $1', [id]);
     res.json({ ok: true });
@@ -205,6 +227,12 @@ router.post('/gelir-gider', async (req, res) => {
   if (!tip || !miktar) {
     return res.status(400).json({ hata: 'tip ve miktar gerekli' });
   }
+  if (!['gelir', 'gider'].includes(tip)) {
+    return res.status(400).json({ hata: 'tip sadece gelir veya gider olabilir' });
+  }
+  if (typeof miktar !== 'number' || miktar <= 0) {
+    return res.status(400).json({ hata: 'miktar pozitif sayı olmalı' });
+  }
   try {
     const result = await pool.query(
       'INSERT INTO gelir_gider (tip, kategori, miktar, aciklama) VALUES ($1, $2, $3, $4) RETURNING *',
@@ -219,6 +247,7 @@ router.post('/gelir-gider', async (req, res) => {
 // Gelir/gider sil
 router.delete('/gelir-gider/:id', async (req, res) => {
   const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ hata: 'Geçersiz ID' });
   try {
     await pool.query('DELETE FROM gelir_gider WHERE id = $1', [id]);
     res.json({ ok: true });

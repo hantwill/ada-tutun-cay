@@ -6,20 +6,24 @@ export default function Login() {
   const [kullanici_ad, setKullaniciAd] = useState('')
   const [sifre, setSifre] = useState('')
   const [hata, setHata] = useState('')
+  const [bekliyor, setBekliyor] = useState(false)
 
   const giris = async () => {
     setHata('')
+    setBekliyor(true)
     try {
       const data = await apiPost('/garson/login', { kullanici_ad, sifre })
       setLogin(data.token, data.kullanici)
     } catch (e: any) {
       setHata(String(e.message || e))
+    } finally {
+      setBekliyor(false)
     }
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-100 to-orange-200">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-96">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm mx-4">
         <h1 className="text-3xl font-bold text-center text-amber-800 mb-2">🍵 Ada Çay Evi</h1>
         <p className="text-center text-gray-500 mb-6">Giriş Yap</p>
 
@@ -30,7 +34,7 @@ export default function Login() {
               type="text"
               value={kullanici_ad}
               onChange={(e) => setKullaniciAd(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && giris()}
+              onKeyDown={(e) => e.key === 'Enter' && !bekliyor && giris()}
               placeholder="admin"
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
             />
@@ -41,7 +45,7 @@ export default function Login() {
               type="password"
               value={sifre}
               onChange={(e) => setSifre(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && giris()}
+              onKeyDown={(e) => e.key === 'Enter' && !bekliyor && giris()}
               placeholder="••••••••"
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
             />
@@ -49,9 +53,10 @@ export default function Login() {
           {hata && <p className="text-red-500 text-sm text-center">{hata}</p>}
           <button
             onClick={giris}
-            className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-lg transition"
+            disabled={bekliyor}
+            className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Giriş Yap
+            {bekliyor ? 'Giriş yapılıyor...' : 'Giriş Yap'}
           </button>
         </div>
       </div>

@@ -13,7 +13,9 @@ export function verifyPassword(plain: string, hash: string): boolean {
     return bcrypt.compareSync(plain, hash);
   }
   // Eski SHA-256 hash (migrasyon — giriş yapınca bcrypt'e güncellenecek)
-  return crypto.createHash('sha256').update(plain).digest('hex') === hash;
+  const computed = crypto.createHash('sha256').update(plain).digest('hex');
+  if (computed.length !== hash.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(hash));
 }
 
 // Eski SHA-256 (sadece init.sql seed için)
@@ -47,7 +49,7 @@ export function verifyToken(token: string): any | null {
     if (!crypto.timingSafeEqual(sigBuf, expBuf)) return null;
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
     // Token 24 saat geçerli
-    if (Date.now() - payload.iat > 24 * 60 * 60 * 1000) return null;
+    if (typeof payload.iat !== 'number' || Date.now() - payload.iat > 24 * 60 * 60 * 1000) return null;
     return payload;
   } catch {
     return null;
