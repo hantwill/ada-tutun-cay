@@ -212,11 +212,8 @@ router.post('/adisyon/:id/kapat', async (req, res) => {
     );
     // Masayı boşalt
     await client.query("UPDATE masalar SET durum = 'bos', guncelleme_tarih = NOW() WHERE id = $1", [masa_id]);
-    // Gelir kaydet
-    await client.query(
-      "INSERT INTO gelir_gider (tip, kategori, miktar, aciklama) VALUES ('gelir', 'Adisyon', $1, $2)",
-      [toplam, `Adisyon #${adisyonId}`]
-    );
+    // NOT: Adisyon tutarı gelir_gider tablosuna YAZILMAZ — adisyonlar tablosunda ayrı tutulur.
+    // gelir_gider = sadece manuel ekstra gelir/gider (tip, kasa nakit, ürün alımı vb.)
     await client.query('COMMIT');
     res.json({ ok: true, toplam });
   } catch (err: any) {

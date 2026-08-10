@@ -166,7 +166,7 @@ export default function Admin() {
               { label: 'Adisyon', val: data.bugun_adet, color: 'text-blue-700' },
               { label: 'Aktif', val: data.aktif_adisyon, color: 'text-green-700' },
               { label: 'Dolu Masa', val: `${data.dolu_masa}/${data.toplam_masa}`, color: 'text-orange-700' },
-              { label: 'Gelir', val: `${Number(data.bugun_gelir).toFixed(2)} ₺`, color: 'text-green-700' },
+              { label: 'Ek Gelir', val: `${Number(data.bugun_gelir).toFixed(2)} ₺`, color: 'text-green-700' },
               { label: 'Gider', val: `${Number(data.bugun_gider).toFixed(2)} ₺`, color: 'text-red-700' },
             ].map((c, i) => (
               <div key={i} className="bg-white rounded-xl p-4 sm:p-6 shadow">
@@ -175,8 +175,9 @@ export default function Admin() {
               </div>
             ))}
             <div className="bg-white rounded-xl p-4 sm:p-6 shadow col-span-2">
-              <div className="text-xs sm:text-sm text-gray-500">Net</div>
-              <div className="text-lg sm:text-2xl font-bold text-gray-800">{(Number(data.bugun_gelir) - Number(data.bugun_gider)).toFixed(2)} ₺</div>
+              <div className="text-xs sm:text-sm text-gray-500">Net Kasa</div>
+              <div className="text-lg sm:text-2xl font-bold text-gray-800">{(Number(data.bugun_satis) + Number(data.bugun_gelir) - Number(data.bugun_gider)).toFixed(2)} ₺</div>
+              <div className="text-xs text-gray-400 mt-1">Satış + Ek Gelir - Gider</div>
             </div>
           </div>
         )}
