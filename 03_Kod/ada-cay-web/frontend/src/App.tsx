@@ -13,6 +13,7 @@ export default function App() {
   const menuAdmin = [
     { id: 'dashboard', icon: '📊', label: 'Dashboard' },
     { id: 'garsonlar', icon: '👥', label: 'Kullanıcılar' },
+    { id: 'masalar', icon: '🪑', label: 'Masalar' },
     { id: 'urunler', icon: '🍽️', label: 'Ürünler' },
     { id: 'gelir-gider', icon: '💰', label: 'Gelir/Gider' },
     { id: 'raporlar', icon: '📋', label: 'Raporlar' },

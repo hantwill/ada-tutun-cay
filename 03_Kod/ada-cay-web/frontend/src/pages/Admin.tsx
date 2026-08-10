@@ -33,6 +33,14 @@ interface Kategori {
   ad: string
 }
 
+interface Masa {
+  id: number
+  numara: string
+  ad: string | null
+  kapasite: number
+  durum: string
+}
+
 interface GelirGider {
   id: number
   tip: string
@@ -63,6 +71,9 @@ export default function Admin() {
   const [garsonlar, setGarsonlar] = useState<Garson[]>([])
   const [urunler, setUrunler] = useState<Urun[]>([])
   const [kategoriler, setKategoriler] = useState<Kategori[]>([])
+  const [masalar, setMasalar] = useState<Masa[]>([])
+  const [yeniMasa, setYeniMasa] = useState({ numara: '', ad: '', kapasite: '4' })
+  const [editMasa, setEditMasa] = useState<Masa | null>(null)
   const [gelirGiderList, setGelirGiderList] = useState<GelirGider[]>([])
   const [raporAdisyonlar, setRaporAdisyonlar] = useState<AdisyonRapor[]>([])
   const [raporGelirGider, setRaporGelirGider] = useState<GelirGider[]>([])
@@ -99,6 +110,13 @@ export default function Admin() {
     } catch (e) { console.error(e) }
   }, [token])
 
+  const yukleMasalar = useCallback(async () => {
+    try {
+      const data = await apiGet('/garson/masalar', token || undefined)
+      setMasalar(data)
+    } catch (e) { console.error(e) }
+  }, [token])
+
   const yukleGelirGider = useCallback(async () => {
     try {
       const b = bugunISO()
@@ -117,6 +135,7 @@ export default function Admin() {
 
   useEffect(() => { yukle() }, [yukle])
   useEffect(() => { if (sayfa === 'urunler') yukleUrunler() }, [sayfa, yukleUrunler])
+  useEffect(() => { if (sayfa === 'masalar') yukleMasalar() }, [sayfa, yukleMasalar])
   useEffect(() => { if (sayfa === 'gelir-gider') yukleGelirGider() }, [sayfa, yukleGelirGider])
   useEffect(() => { if (sayfa === 'raporlar') yukleRapor() }, [sayfa, yukleRapor])
 
@@ -243,6 +262,9 @@ export default function Admin() {
                     } else if (silOnay.tip === 'garson') {
                       await apiDelete(`/admin/garsonlar/${silOnay.id}`, token || undefined)
                       mesajGoster('Kullanıcı silindi'); yukle()
+                    } else if (silOnay.tip === 'masa') {
+                      await apiDelete(`/admin/masalar/${silOnay.id}`, token || undefined)
+                      mesajGoster('Masa silindi'); yukleMasalar()
                     } else if (silOnay.tip === 'gelir-gider') {
                       await apiDelete(`/admin/gelir-gider/${silOnay.id}`, token || undefined)
                       mesajGoster('Kayıt silindi'); yukleGelirGider()
@@ -259,7 +281,134 @@ export default function Admin() {
     )
   }
 
-  // === ÜRÜN YÖNETİMİ ===
+  // === MASA YÖNETİMİ ===
+  if (sayfa === 'masalar') {
+    return (
+      <div className="p-4 sm:p-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6">🪑 Masalar</h1>
+
+        {/* Yeni masa ekleme */}
+        <div className="bg-white rounded-xl p-4 sm:p-6 shadow mb-4 sm:mb-6">
+          <h2 className="font-semibold mb-4">Yeni Masa</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <input type="text" placeholder="Masa No (örn: 1)" value={yeniMasa.numara}
+              onChange={(e) => setYeniMasa({ ...yeniMasa, numara: e.target.value })}
+              className="px-3 py-2 rounded-lg border outline-none focus:ring-2 focus:ring-amber-500" />
+            <input type="text" placeholder="Masa Adı (örn: Pencere Kenarı)" value={yeniMasa.ad}
+              onChange={(e) => setYeniMasa({ ...yeniMasa, ad: e.target.value })}
+              className="px-3 py-2 rounded-lg border outline-none focus:ring-2 focus:ring-amber-500" />
+            <input type="number" placeholder="Kapasite" value={yeniMasa.kapasite}
+              onChange={(e) => setYeniMasa({ ...yeniMasa, kapasite: e.target.value })}
+              className="px-3 py-2 rounded-lg border outline-none focus:ring-2 focus:ring-amber-500" />
+            <button onClick={async () => {
+              if (!yeniMasa.numara) { mesajGoster('Masa numarası gerekli'); return }
+              try {
+                await apiPost('/admin/masalar', { numara: yeniMasa.numara, ad: yeniMasa.ad || null, kapasite: parseInt(yeniMasa.kapasite) || 4 }, token || undefined)
+                setYeniMasa({ numara: '', ad: '', kapasite: '4' }); mesajGoster('Masa eklendi ✓'); yukleMasalar()
+              } catch (e: any) { mesajGoster(String(e.message || e)) }
+            }} className="bg-amber-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-amber-700">Ekle</button>
+          </div>
+        </div>
+
+        {/* Masa listesi — düzenle + sil */}
+        <div className="bg-white rounded-xl shadow overflow-x-auto">
+          <table className="w-full min-w-[500px]">
+            <thead className="bg-gray-100"><tr>
+              <th className="text-left p-3">No</th><th className="text-left p-3">Ad</th>
+              <th className="text-left p-3">Kapasite</th><th className="text-left p-3">Durum</th>
+              <th className="text-left p-3">İşlem</th>
+            </tr></thead>
+            <tbody>
+              {masalar.length === 0 ? (
+                <tr><td colSpan={5} className="p-6 text-center text-gray-400">Masa yok</td></tr>
+              ) : masalar.map((m) => (
+                <tr key={m.id} className="border-b hover:bg-gray-50">
+                  <td className="p-3 font-medium">{m.numara}</td>
+                  <td className="p-3">{m.ad || '-'}</td>
+                  <td className="p-3">{m.kapasite} kişi</td>
+                  <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs ${m.durum === 'bos' ? 'bg-green-100 text-green-700' : m.durum === 'dolu' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{m.durum === 'bos' ? 'Boş' : m.durum === 'dolu' ? 'Dolu' : 'Rezerve'}</span></td>
+                  <td className="p-3 flex gap-1">
+                    <button onClick={() => setEditMasa(m)}
+                      className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200">Düzenle</button>
+                    <button onClick={() => setSilOnay({ id: m.id, ad: `Masa ${m.numara}${m.ad ? ' (${m.ad})' : ''}`, tip: 'masa' })}
+                      className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">Sil</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {mesaj && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-3 rounded-full text-sm z-50">{mesaj}</div>}
+        {silOnay && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+              <h3 className="text-lg font-bold text-gray-800 mb-2">Silme Onayı</h3>
+              <p className="text-gray-600 mb-1">"<span className="font-semibold">{silOnay.ad}</span>" silinecek.</p>
+              <p className="text-sm text-gray-400 mb-6">Bu işlem geri alınamaz.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setSilOnay(null)}
+                  className="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300">Vazgeç</button>
+                <button onClick={async () => {
+                  try {
+                    if (silOnay.tip === 'masa') {
+                      await apiDelete(`/admin/masalar/${silOnay.id}`, token || undefined)
+                      mesajGoster('Masa silindi'); yukleMasalar()
+                    }
+                  } catch (e: any) { mesajGoster(String(e.message || e)) }
+                  setSilOnay(null)
+                }}
+                  className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700">Sil</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {editMasa && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">Masa Düzenle</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-gray-500">Masa Numarası</label>
+                  <input type="text" value={editMasa.numara}
+                    onChange={(e) => setEditMasa({ ...editMasa, numara: e.target.value })}
+                    className="block w-full px-3 py-2 rounded-lg border outline-none focus:ring-2 focus:ring-amber-500" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Masa Adı</label>
+                  <input type="text" value={editMasa.ad ?? ''}
+                    onChange={(e) => setEditMasa({ ...editMasa, ad: e.target.value })}
+                    placeholder="(opsiyonel)"
+                    className="block w-full px-3 py-2 rounded-lg border outline-none focus:ring-2 focus:ring-amber-500" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Kapasite</label>
+                  <input type="number" value={editMasa.kapasite}
+                    onChange={(e) => setEditMasa({ ...editMasa, kapasite: parseInt(e.target.value) || 4 })}
+                    className="block w-full px-3 py-2 rounded-lg border outline-none focus:ring-2 focus:ring-amber-500" />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setEditMasa(null)}
+                  className="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300">Vazgeç</button>
+                <button onClick={async () => {
+                  if (!editMasa) return
+                  try {
+                    await apiPut(`/admin/masalar/${editMasa.id}`, {
+                      numara: editMasa.numara,
+                      ad: editMasa.ad || null,
+                      kapasite: editMasa.kapasite
+                    }, token || undefined)
+                    mesajGoster('Düzenlendi ✓'); setEditMasa(null); yukleMasalar()
+                  } catch (e: any) { mesajGoster(String(e.message || e)) }
+                }}
+                  className="flex-1 px-4 py-2 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-700">Kaydet</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
   if (sayfa === 'urunler') {
     return (
       <div className="p-4 sm:p-6">
@@ -333,6 +482,9 @@ export default function Admin() {
                     } else if (silOnay.tip === 'garson') {
                       await apiDelete(`/admin/garsonlar/${silOnay.id}`, token || undefined)
                       mesajGoster('Kullanıcı silindi'); yukle()
+                    } else if (silOnay.tip === 'masa') {
+                      await apiDelete(`/admin/masalar/${silOnay.id}`, token || undefined)
+                      mesajGoster('Masa silindi'); yukleMasalar()
                     } else if (silOnay.tip === 'gelir-gider') {
                       await apiDelete(`/admin/gelir-gider/${silOnay.id}`, token || undefined)
                       mesajGoster('Kayıt silindi'); yukleGelirGider()
@@ -492,6 +644,9 @@ export default function Admin() {
                     } else if (silOnay.tip === 'garson') {
                       await apiDelete(`/admin/garsonlar/${silOnay.id}`, token || undefined)
                       mesajGoster('Kullanıcı silindi'); yukle()
+                    } else if (silOnay.tip === 'masa') {
+                      await apiDelete(`/admin/masalar/${silOnay.id}`, token || undefined)
+                      mesajGoster('Masa silindi'); yukleMasalar()
                     } else if (silOnay.tip === 'gelir-gider') {
                       await apiDelete(`/admin/gelir-gider/${silOnay.id}`, token || undefined)
                       mesajGoster('Kayıt silindi'); yukleGelirGider()
@@ -629,6 +784,9 @@ export default function Admin() {
                     } else if (silOnay.tip === 'garson') {
                       await apiDelete(`/admin/garsonlar/${silOnay.id}`, token || undefined)
                       mesajGoster('Kullanıcı silindi'); yukle()
+                    } else if (silOnay.tip === 'masa') {
+                      await apiDelete(`/admin/masalar/${silOnay.id}`, token || undefined)
+                      mesajGoster('Masa silindi'); yukleMasalar()
                     } else if (silOnay.tip === 'gelir-gider') {
                       await apiDelete(`/admin/gelir-gider/${silOnay.id}`, token || undefined)
                       mesajGoster('Kayıt silindi'); yukleGelirGider()

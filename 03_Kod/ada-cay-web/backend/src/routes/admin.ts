@@ -193,6 +193,54 @@ router.post('/masalar', async (req, res) => {
   }
 });
 
+// Masa güncelle (ad, numara, kapasite değiştir)
+router.put('/masalar/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ hata: 'Geçersiz ID' });
+  const { numara, ad, kapasite } = req.body;
+  if (!numara) {
+    return res.status(400).json({ hata: 'numara gerekli' });
+  }
+  try {
+    const result = await pool.query(
+      'UPDATE masalar SET numara = $1, ad = $2, kapasite = $3 WHERE id = $4 RETURNING *',
+      [numara, ad, kapasite, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ hata: 'Masa bulunamadı' });
+    }
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    if (err.code === '23505') {
+      return res.status(400).json({ hata: 'Bu masa numarası zaten mevcut' });
+    }
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+// Masa sil (aktif adisyonu varsa engelle)
+router.delete('/masalar/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ hata: 'Geçersiz ID' });
+  try {
+    // Açık adisyon var mı kontrol et
+    const acikAdisyon = await pool.query(
+      "SELECT id FROM adisyonlar WHERE masa_id = $1 AND durum = 'acik'",
+      [id]
+    );
+    if (acikAdisyon.rows.length > 0) {
+      return res.status(400).json({ hata: 'Bu masada açık adisyon var, silinemez' });
+    }
+    const result = await pool.query('DELETE FROM masalar WHERE id = $1 RETURNING id', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ hata: 'Masa bulunamadı' });
+    }
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
 // Rapor — tarih aralığı
 router.get('/rapor', async (req, res) => {
   const baslangic = req.query.baslangic as string;
