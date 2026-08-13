@@ -147,8 +147,8 @@ export default function Masalar() {
   // === MASA LİSTESİ (telefon ekranı) ===
   if (!seciliMasa) {
     return (
-      <div className="flex flex-col h-full p-3 sm:p-4">
-        <div className="flex items-center justify-between mb-3 sm:mb-4 flex-shrink-0">
+      <div className="p-3 sm:p-4">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-lg sm:text-xl font-bold text-amber-800">🍽️ Masalar</h2>
           <button onClick={() => setPlanModu(!planModu)}
             className="px-3 py-1 rounded-lg bg-amber-100 text-amber-700 text-xs font-semibold hover:bg-amber-200 transition">
@@ -157,24 +157,24 @@ export default function Masalar() {
         </div>
 
         {planModu ? (
-          /* Plan modu — admin ile birebir aynı canvas */
-          <div className="relative flex-1 bg-amber-50/50 border-2 border-dashed border-amber-200 rounded-2xl overflow-hidden min-h-[400px] touch-none select-none"
-            style={{ touchAction: 'none' }}>
+          /* Plan modu — masalar pozisyonlarına göre */
+          <div className="relative bg-amber-50/50 border-2 border-dashed border-amber-200 rounded-2xl overflow-hidden min-h-[400px]"
+            style={{ touchAction: 'pan-y' }}>
             {masalar.map((m) => (
               <button key={m.id} onClick={() => masaSec(m)}
-                className={`absolute w-20 sm:w-28 h-16 sm:h-24 rounded-xl flex flex-col items-center justify-center transition font-semibold text-xs sm:text-sm select-none touch-none ${
+                className={`absolute w-20 sm:w-28 h-16 sm:h-24 rounded-xl flex flex-col items-center justify-center transition font-semibold text-xs sm:text-sm select-none ${
                   m.durum === 'dolu' ? 'bg-red-100 border-2 border-red-300 text-red-700 hover:bg-red-200' : 'bg-white border-2 border-amber-200 text-gray-700 hover:bg-amber-100 shadow-sm'
                 }`}
-                style={{ left: `${m.pos_x ?? 0}%`, top: `${m.pos_y ?? 0}%`, touchAction: 'none' }}>
+                style={{ left: `${m.pos_x ?? 0}%`, top: `${m.pos_y ?? 0}%` }}>
                 <div className="text-sm sm:text-base font-bold leading-tight text-center px-1">{m.ad || `Masa ${m.numara}`}</div>
-                <div className="text-xs opacity-60 mt-0.5">{m.kapasite} kişilik</div>
-                {m.durum === 'dolu' && <div className="text-xs text-red-500 font-semibold mt-0.5">🔵 Dolu</div>}
+                <div className="text-xs opacity-60 hidden sm:block">{m.kapasite} kişilik</div>
+                {m.durum === 'dolu' && <div className="text-xs mt-0.5">🔵</div>}
               </button>
             ))}
           </div>
         ) : (
           /* Grid modu — klasik liste */
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 flex-1 content-start">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
             {masalar.map((m) => (
               <button key={m.id} onClick={() => masaSec(m)}
                 className={`p-3 sm:p-4 rounded-xl text-center transition font-semibold text-sm sm:text-base ${

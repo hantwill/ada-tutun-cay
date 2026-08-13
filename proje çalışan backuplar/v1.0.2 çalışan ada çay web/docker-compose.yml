@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ada_cay
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-ada_cay_secure_2026}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ada_cay_db:/var/lib/postgresql/data
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ada_cay
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-ada_cay_secure_2026}
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      PORT: 3001
+    expose:
+      - "3001"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+volumes:
+  ada_cay_db:

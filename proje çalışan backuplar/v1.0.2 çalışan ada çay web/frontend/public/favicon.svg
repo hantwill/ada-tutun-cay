@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Çay bardağı -->
+  <path d="M16 20 L48 20 L44 54 Q44 58 40 58 L24 58 Q20 58 20 54 Z" fill="#d97706" />
+  <!-- Buğu -->
+  <path d="M26 8 Q28 12 26 16 M32 6 Q34 12 32 16 M38 8 Q40 12 38 16" stroke="#d97706" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.5" />
+  <!-- Kulplar -->
+  <path d="M48 26 Q56 26 56 34 Q56 42 48 42" fill="none" stroke="#d97706" stroke-width="3" stroke-linecap="round" />
+  <!-- Çay -->
+  <ellipse cx="32" cy="22" rx="15" ry="3" fill="#92400e" />
+</svg>
