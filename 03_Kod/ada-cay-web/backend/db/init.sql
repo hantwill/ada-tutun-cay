@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS masalar (
     ad VARCHAR(50),
     kapasite INTEGER DEFAULT 4,
     durum VARCHAR(20) NOT NULL DEFAULT 'bos' CHECK (durum IN ('bos', 'dolu', 'rezerve')),
+    pos_x INTEGER,
+    pos_y INTEGER,
     guncelleme_tarih TIMESTAMP DEFAULT NOW()
 );
 

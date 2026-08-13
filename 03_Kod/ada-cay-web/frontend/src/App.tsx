@@ -3,6 +3,7 @@ import Login from './pages/Login'
 import Masalar from './pages/Masalar'
 import Admin from './pages/Admin'
 import GarsonIslem from './pages/GarsonIslem'
+import MasaDuzeni from './pages/MasaDuzeni'
 
 export default function App() {
   const { token, kullanici, logout, sayfa, setSayfa } = useStore()
@@ -15,6 +16,7 @@ export default function App() {
     { id: 'dashboard', icon: '📊', label: 'Dashboard' },
     { id: 'garsonlar', icon: '👥', label: 'Kullanıcılar' },
     { id: 'masalar', icon: '🪑', label: 'Masalar' },
+    { id: 'masa-duzeni', icon: '📐', label: 'Masa Düzeni' },
     { id: 'adisyon', icon: '🍽️', label: 'Adisyon' },
     { id: 'urunler', icon: '📋', label: 'Ürünler' },
     { id: 'gelir-gider', icon: '💰', label: 'Gelir/Gider' },
@@ -58,7 +60,8 @@ export default function App() {
         {isGarson && sayfa === 'masalar' && <Masalar />}
         {isGarson && sayfa === 'islem' && <GarsonIslem />}
         {!isGarson && sayfa === 'adisyon' && <Masalar />}
-        {!isGarson && sayfa !== 'adisyon' && <Admin />}
+        {!isGarson && sayfa === 'masa-duzeni' && <MasaDuzeni />}
+        {!isGarson && sayfa !== 'adisyon' && sayfa !== 'masa-duzeni' && <Admin />}
       </div>
     </div>
   )

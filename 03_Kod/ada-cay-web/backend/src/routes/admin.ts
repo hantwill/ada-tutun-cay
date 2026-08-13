@@ -218,6 +218,22 @@ router.put('/masalar/:id', async (req, res) => {
   }
 });
 
+// Masa konum güncelle (drag & drop)
+router.put('/masalar/:id/konum', async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ hata: 'Geçersiz ID' });
+  const { pos_x, pos_y } = req.body;
+  if (typeof pos_x !== 'number' || typeof pos_y !== 'number') {
+    return res.status(400).json({ hata: 'pos_x ve pos_y sayı olmalı' });
+  }
+  try {
+    await pool.query('UPDATE masalar SET pos_x = $1, pos_y = $2 WHERE id = $3', [Math.round(pos_x), Math.round(pos_y), id]);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
 // Masa sil (aktif adisyonu varsa engelle)
 router.delete('/masalar/:id', async (req, res) => {
   const id = parseInt(req.params.id);

@@ -7,6 +7,8 @@ interface Masa {
   ad: string | null
   kapasite: number
   durum: string
+  pos_x: number | null
+  pos_y: number | null
 }
 
 interface Adisyon {
@@ -51,6 +53,7 @@ export default function Masalar() {
   const [mesaj, setMesaj] = useState('')
   const [tasiModal, setTasiModal] = useState(false)
   const [iptalOnay, setIptalOnay] = useState(false)
+  const [planModu, setPlanModu] = useState(true)
 
   const mesajGoster = (m: string) => { setMesaj(m); setTimeout(() => setMesaj(''), 2500) }
 
@@ -145,19 +148,46 @@ export default function Masalar() {
   if (!seciliMasa) {
     return (
       <div className="p-3 sm:p-4">
-        <h2 className="text-lg sm:text-xl font-bold text-amber-800 mb-3 sm:mb-4">🍽️ Masalar</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
-          {masalar.map((m) => (
-            <button key={m.id} onClick={() => masaSec(m)}
-              className={`p-3 sm:p-4 rounded-xl text-center transition font-semibold text-sm sm:text-base ${
-                m.durum === 'dolu' ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-white text-gray-700 hover:bg-amber-100 shadow-sm'
-              }`}>
-              <div className="text-lg">{m.ad || `Masa ${m.numara}`}</div>
-              <div className="text-xs opacity-60">{m.kapasite} kişilik</div>
-              {m.durum === 'dolu' && <div className="text-xs mt-1">🔵 Dolu</div>}
-            </button>
-          ))}
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h2 className="text-lg sm:text-xl font-bold text-amber-800">🍽️ Masalar</h2>
+          <button onClick={() => setPlanModu(!planModu)}
+            className="px-3 py-1 rounded-lg bg-amber-100 text-amber-700 text-xs font-semibold hover:bg-amber-200 transition">
+            {planModu ? '📋 Liste' : '📐 Plan'}
+          </button>
         </div>
+
+        {planModu ? (
+          /* Plan modu — masalar pozisyonlarına göre */
+          <div className="relative bg-amber-50/50 border-2 border-dashed border-amber-200 rounded-2xl overflow-hidden min-h-[400px]"
+            style={{ touchAction: 'pan-y' }}>
+            {masalar.map((m) => (
+              <button key={m.id} onClick={() => masaSec(m)}
+                className={`absolute w-20 sm:w-28 h-16 sm:h-24 rounded-xl flex flex-col items-center justify-center transition font-semibold text-xs sm:text-sm select-none ${
+                  m.durum === 'dolu' ? 'bg-red-100 border-2 border-red-300 text-red-700 hover:bg-red-200' : 'bg-white border-2 border-amber-200 text-gray-700 hover:bg-amber-100 shadow-sm'
+                }`}
+                style={{ left: `${m.pos_x ?? 0}%`, top: `${m.pos_y ?? 0}%` }}>
+                <div className="text-sm sm:text-base font-bold leading-tight text-center px-1">{m.ad || `Masa ${m.numara}`}</div>
+                <div className="text-xs opacity-60 hidden sm:block">{m.kapasite} kişilik</div>
+                {m.durum === 'dolu' && <div className="text-xs mt-0.5">🔵</div>}
+              </button>
+            ))}
+          </div>
+        ) : (
+          /* Grid modu — klasik liste */
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
+            {masalar.map((m) => (
+              <button key={m.id} onClick={() => masaSec(m)}
+                className={`p-3 sm:p-4 rounded-xl text-center transition font-semibold text-sm sm:text-base ${
+                  m.durum === 'dolu' ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-white text-gray-700 hover:bg-amber-100 shadow-sm'
+                }`}>
+                <div className="text-lg">{m.ad || `Masa ${m.numara}`}</div>
+                <div className="text-xs opacity-60">{m.kapasite} kişilik</div>
+                {m.durum === 'dolu' && <div className="text-xs mt-1">🔵 Dolu</div>}
+              </button>
+            ))}
+          </div>
+        )}
+
         {mesaj && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-full text-sm z-50">{mesaj}</div>}
       </div>
     )
