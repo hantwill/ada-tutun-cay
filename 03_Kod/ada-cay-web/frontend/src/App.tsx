@@ -17,7 +17,6 @@ export default function App() {
     { id: 'garsonlar', icon: '👥', label: 'Kullanıcılar' },
     { id: 'masalar', icon: '🪑', label: 'Masalar' },
     { id: 'masa-duzeni', icon: '📐', label: 'Masa Düzeni' },
-    { id: 'adisyon', icon: '🍽️', label: 'Adisyon' },
     { id: 'urunler', icon: '📋', label: 'Ürünler' },
     { id: 'gelir-gider', icon: '💰', label: 'Gelir/Gider' },
     { id: 'raporlar', icon: '📋', label: 'Raporlar' },
@@ -59,9 +58,8 @@ export default function App() {
       <div className="flex-1 overflow-y-auto">
         {isGarson && sayfa === 'masalar' && <Masalar />}
         {isGarson && sayfa === 'islem' && <GarsonIslem />}
-        {!isGarson && sayfa === 'adisyon' && <Masalar />}
         {!isGarson && sayfa === 'masa-duzeni' && <MasaDuzeni />}
-        {!isGarson && sayfa !== 'adisyon' && sayfa !== 'masa-duzeni' && <Admin />}
+        {!isGarson && sayfa !== 'masa-duzeni' && <Admin />}
       </div>
     </div>
   )
