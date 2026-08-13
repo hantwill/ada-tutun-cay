@@ -15,7 +15,8 @@ export default function App() {
     { id: 'dashboard', icon: '📊', label: 'Dashboard' },
     { id: 'garsonlar', icon: '👥', label: 'Kullanıcılar' },
     { id: 'masalar', icon: '🪑', label: 'Masalar' },
-    { id: 'urunler', icon: '🍽️', label: 'Ürünler' },
+    { id: 'adisyon', icon: '🍽️', label: 'Adisyon' },
+    { id: 'urunler', icon: '📋', label: 'Ürünler' },
     { id: 'gelir-gider', icon: '💰', label: 'Gelir/Gider' },
     { id: 'raporlar', icon: '📋', label: 'Raporlar' },
   ]
@@ -56,7 +57,8 @@ export default function App() {
       <div className="flex-1 overflow-y-auto">
         {isGarson && sayfa === 'masalar' && <Masalar />}
         {isGarson && sayfa === 'islem' && <GarsonIslem />}
-        {!isGarson && <Admin />}
+        {!isGarson && sayfa === 'adisyon' && <Masalar />}
+        {!isGarson && sayfa !== 'adisyon' && <Admin />}
       </div>
     </div>
   )

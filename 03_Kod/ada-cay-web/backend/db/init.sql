@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS adisyonlar (
     id SERIAL PRIMARY KEY,
     masa_id INTEGER NOT NULL REFERENCES masalar(id),
     garson_id INTEGER NOT NULL REFERENCES kullanicilar(id),
-    durum VARCHAR(20) NOT NULL DEFAULT 'acik' CHECK (durum IN ('acik', 'kapali', 'odendi')),
+    durum VARCHAR(20) NOT NULL DEFAULT 'acik' CHECK (durum IN ('acik', 'kapali', 'odendi', 'iptal')),
     toplam DECIMAL(10,2) DEFAULT 0,
     odeme_tipi VARCHAR(20),
     acilis_tarih TIMESTAMP DEFAULT NOW(),

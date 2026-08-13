@@ -41,6 +41,7 @@ const io = new Server(server, {
 });
 
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
 app.use(cors({ origin: corsOrigin, credentials: false }));
 app.use(express.json({ limit: '10kb' }));
 app.use(generalLimiter);

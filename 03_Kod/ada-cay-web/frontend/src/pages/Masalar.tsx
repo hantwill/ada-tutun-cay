@@ -50,6 +50,7 @@ export default function Masalar() {
   const [seciliKategori, setSeciliKategori] = useState<string>('')
   const [mesaj, setMesaj] = useState('')
   const [tasiModal, setTasiModal] = useState(false)
+  const [iptalOnay, setIptalOnay] = useState(false)
 
   const mesajGoster = (m: string) => { setMesaj(m); setTimeout(() => setMesaj(''), 2500) }
 
@@ -118,8 +119,8 @@ export default function Masalar() {
   }
 
   const adisyonIptal = async () => {
+    setIptalOnay(false)
     if (!adisyon) return
-    if (!confirm('Adisyon iptal edilecek. Emin misiniz?')) return
     try {
       await apiPost(`/garson/adisyon/${adisyon.id}/iptal`, {}, token || undefined)
       setAdisyon(null); setKalemler([]); setSeciliMasa(null); yukleMasalar()
@@ -178,7 +179,7 @@ export default function Masalar() {
                 className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-lg text-sm font-semibold transition">
                 ↔ Taşı
               </button>
-              <button onClick={adisyonIptal}
+              <button onClick={() => setIptalOnay(true)}
                 className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg text-sm font-semibold transition">
                 ✕ İptal
               </button>
@@ -267,6 +268,22 @@ export default function Masalar() {
           )}
         </div>
       </div>
+
+      {iptalOnay && adisyon && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Adisyon İptal</h3>
+            <p className="text-gray-600 mb-1">Adisyon #{adisyon.id} iptal edilecek.</p>
+            <p className="text-sm text-gray-400 mb-6">Masadaki tüm ürünler silinecek, masa boşalacak.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setIptalOnay(false)}
+                className="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300">Vazgeç</button>
+              <button onClick={adisyonIptal}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700">İptal Et</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {tasiModal && adisyon && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">

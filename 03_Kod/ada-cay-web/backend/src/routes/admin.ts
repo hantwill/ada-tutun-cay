@@ -236,8 +236,9 @@ router.delete('/masalar/:id', async (req, res) => {
       return res.status(404).json({ hata: 'Masa bulunamadı' });
     }
     res.json({ ok: true });
-  } catch {
-    res.status(500).json({ hata: 'Sunucu hatası' });
+  } catch (err: any) {
+    console.error('Masa silme hatası:', err);
+    res.status(500).json({ hata: err.message || 'Sunucu hatası' });
   }
 });
 
