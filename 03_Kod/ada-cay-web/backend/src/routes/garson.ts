@@ -41,7 +41,7 @@ router.use(authMiddleware);
 // Tüm masalar
 router.get('/masalar', async (_req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM masalar ORDER BY numara');
+    const result = await pool.query('SELECT * FROM masalar ORDER BY NULLIF(regexp_replace(numara, \'[^0-9]\', \'\', \'g\'), \'\')::int, numara');
     res.json(result.rows);
   } catch {
     res.status(500).json({ hata: 'Sunucu hatası' });
@@ -188,6 +188,88 @@ router.delete('/adisyon/kalem/:kalemId', async (req, res) => {
   }
 });
 
+// Adisyonu başka masaya taşı
+router.post('/adisyon/:id/tasi', async (req, res) => {
+  const adisyonId = parseInt(req.params.id);
+  const { hedefMasaId } = req.body;
+  if (!hedefMasaId || typeof hedefMasaId !== 'number') {
+    return res.status(400).json({ hata: 'hedefMasaId gerekli' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Adisyon açık mı kontrol
+    const adisyonResult = await client.query(
+      'SELECT masa_id, durum FROM adisyonlar WHERE id = $1 AND durum = $2',
+      [adisyonId, 'acik']
+    );
+    if (adisyonResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ hata: 'Açık adisyon bulunamadı' });
+    }
+    const eskiMasaId = adisyonResult.rows[0].masa_id;
+    if (eskiMasaId === hedefMasaId) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ hata: 'Aynı masaya taşınamaz' });
+    }
+    // Hedef masa boş mu kontrol
+    const hedefMasa = await client.query('SELECT durum FROM masalar WHERE id = $1', [hedefMasaId]);
+    if (hedefMasa.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ hata: 'Hedef masa bulunamadı' });
+    }
+    if (hedefMasa.rows[0].durum === 'dolu') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ hata: 'Hedef masa dolu' });
+    }
+    // Adisyonu yeni masaya bağla
+    await client.query('UPDATE adisyonlar SET masa_id = $1 WHERE id = $2', [hedefMasaId, adisyonId]);
+    // Eski masayı boşalt
+    await client.query("UPDATE masalar SET durum = 'bos', guncelleme_tarih = NOW() WHERE id = $1", [eskiMasaId]);
+    // Yeni masayı dolu yap
+    await client.query("UPDATE masalar SET durum = 'dolu', guncelleme_tarih = NOW() WHERE id = $1", [hedefMasaId]);
+    await client.query('COMMIT');
+    res.json({ ok: true, yeniMasaId: hedefMasaId });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  } finally {
+    client.release();
+  }
+});
+
+// Adisyon iptal et (yanlış açılan adisyonu sil, masayı boşalt)
+router.post('/adisyon/:id/iptal', async (req, res) => {
+  const adisyonId = parseInt(req.params.id);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const adisyonResult = await client.query(
+      'SELECT masa_id, durum FROM adisyonlar WHERE id = $1 AND durum = $2',
+      [adisyonId, 'acik']
+    );
+    if (adisyonResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ hata: 'Açık adisyon bulunamadı' });
+    }
+    const { masa_id } = adisyonResult.rows[0];
+    // Adisyonu iptal et
+    await client.query(
+      "UPDATE adisyonlar SET durum = 'iptal', kapanis_tarih = NOW() WHERE id = $1",
+      [adisyonId]
+    );
+    // Masayı boşalt
+    await client.query("UPDATE masalar SET durum = 'bos', guncelleme_tarih = NOW() WHERE id = $1", [masa_id]);
+    await client.query('COMMIT');
+    res.json({ ok: true });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  } finally {
+    client.release();
+  }
+});
+
 // Adisyon kapat (ödeme)
 router.post('/adisyon/:id/kapat', async (req, res) => {
   const adisyonId = parseInt(req.params.id);
@@ -277,6 +359,32 @@ router.get('/rapor/gelir-gider', async (_req, res) => {
       `SELECT * FROM gelir_gider WHERE date(tarih) = date(NOW()) ORDER BY tarih DESC`
     );
     res.json(result.rows);
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+// Garson: Adisyon detay (kalemler + garson bilgisi)
+router.get('/rapor/adisyon/:id', async (req, res) => {
+  const adisyonId = parseInt(req.params.id);
+  try {
+    const adisyonResult = await pool.query(
+      `SELECT a.*, k.ad as garson_ad,
+              m.numara as masa_numara, m.ad as masa_ad
+       FROM adisyonlar a
+       JOIN kullanicilar k ON a.garson_id = k.id
+       JOIN masalar m ON a.masa_id = m.id
+       WHERE a.id = $1`,
+      [adisyonId]
+    );
+    if (adisyonResult.rows.length === 0) {
+      return res.status(404).json({ hata: 'Adisyon bulunamadı' });
+    }
+    const kalemlerResult = await pool.query(
+      `SELECT * FROM adisyon_kalemleri WHERE adisyon_id = $1 ORDER BY ekleme_tarih`,
+      [adisyonId]
+    );
+    res.json({ adisyon: adisyonResult.rows[0], kalemler: kalemlerResult.rows });
   } catch {
     res.status(500).json({ hata: 'Sunucu hatası' });
   }

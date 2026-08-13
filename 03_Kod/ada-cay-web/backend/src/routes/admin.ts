@@ -241,6 +241,33 @@ router.delete('/masalar/:id', async (req, res) => {
   }
 });
 
+// Adisyon detay — kalemler + kim açtı
+router.get('/rapor/adisyon/:id', async (req, res) => {
+  const adisyonId = parseInt(req.params.id);
+  try {
+    const adisyonResult = await pool.query(
+      `SELECT a.*,
+              k.ad as garson_ad, k.kullanici_ad as garson_kadi,
+              m.numara as masa_numara, m.ad as masa_ad
+       FROM adisyonlar a
+       JOIN kullanicilar k ON a.garson_id = k.id
+       JOIN masalar m ON a.masa_id = m.id
+       WHERE a.id = $1`,
+      [adisyonId]
+    );
+    if (adisyonResult.rows.length === 0) {
+      return res.status(404).json({ hata: 'Adisyon bulunamadı' });
+    }
+    const kalemlerResult = await pool.query(
+      `SELECT * FROM adisyon_kalemleri WHERE adisyon_id = $1 ORDER BY ekleme_tarih`,
+      [adisyonId]
+    );
+    res.json({ adisyon: adisyonResult.rows[0], kalemler: kalemlerResult.rows });
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
 // Rapor — tarih aralığı
 router.get('/rapor', async (req, res) => {
   const baslangic = req.query.baslangic as string;

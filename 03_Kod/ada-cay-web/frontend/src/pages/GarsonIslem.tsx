@@ -25,6 +25,7 @@ export default function GarsonIslem() {
   const [adisyonlar, setAdisyonlar] = useState<AdisyonRapor[]>([])
   const [gelirGider, setGelirGider] = useState<GelirGider[]>([])
   const [loading, setLoading] = useState(true)
+  const [adisyonDetay, setAdisyonDetay] = useState<any>(null)
 
   const yukle = useCallback(async () => {
     try {
@@ -85,7 +86,12 @@ export default function GarsonIslem() {
             {adisyonlar.length === 0 ? (
               <tr><td colSpan={6} className="p-6 text-center text-gray-400">Kayıt yok</td></tr>
             ) : adisyonlar.map((a) => (
-              <tr key={a.id} className="border-b hover:bg-gray-50">
+              <tr key={a.id} className="border-b hover:bg-amber-50 cursor-pointer" onClick={async () => {
+                try {
+                  const detay = await apiGet(`/garson/rapor/adisyon/${a.id}`, token || undefined)
+                  setAdisyonDetay(detay)
+                } catch (e) { console.error(e) }
+              }}>
                 <td className="p-3">#{a.id}</td>
                 <td className="p-3 text-sm">{new Date(a.kapanis_tarih).toLocaleString('tr-TR')}</td>
                 <td className="p-3">{a.garson_ad}</td>
@@ -122,6 +128,58 @@ export default function GarsonIslem() {
           </tbody>
         </table>
       </div>
+
+      {adisyonDetay && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" onClick={() => setAdisyonDetay(null)}>
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">Adisyon #{adisyonDetay.adisyon.id}</h3>
+                <p className="text-sm text-gray-500">{adisyonDetay.adisyon.masa_ad || `Masa ${adisyonDetay.adisyon.masa_numara}`}</p>
+              </div>
+              <button onClick={() => setAdisyonDetay(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="text-xs text-gray-500">Garson</div>
+                <div className="font-semibold text-sm">{adisyonDetay.adisyon.garson_ad}</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="text-xs text-gray-500">Ödeme</div>
+                <div className="font-semibold text-sm">{adisyonDetay.adisyon.odeme_tipi || '-'}</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="text-xs text-gray-500">Açılış</div>
+                <div className="font-semibold text-sm">{new Date(adisyonDetay.adisyon.acilis_tarih).toLocaleString('tr-TR')}</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="text-xs text-gray-500">Kapanış</div>
+                <div className="font-semibold text-sm">{adisyonDetay.adisyon.kapanis_tarih ? new Date(adisyonDetay.adisyon.kapanis_tarih).toLocaleString('tr-TR') : '-'}</div>
+              </div>
+            </div>
+            <h4 className="font-semibold text-sm text-gray-700 mb-2">Kalemler</h4>
+            <div className="space-y-1 mb-4">
+              {adisyonDetay.kalemler.length === 0 ? (
+                <p className="text-gray-400 text-sm">Ürün yok</p>
+              ) : adisyonDetay.kalemler.map((k: any) => (
+                <div key={k.id} className={`flex justify-between items-center p-2 rounded-lg text-sm ${k.durum === 'iptal' ? 'bg-red-50 text-gray-400 line-through' : 'bg-gray-50'}`}>
+                  <div className="flex-1">
+                    <span className="font-medium">{k.urun_ad}</span>
+                    <span className="text-gray-400 text-xs"> x{k.miktar}</span>
+                    {k.durum === 'iptal' && <span className="text-xs text-red-500 ml-2">(iptal)</span>}
+                  </div>
+                  <span className="font-semibold">{k.toplam} ₺</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t pt-3">
+              <div className="flex justify-between text-lg font-bold">
+                <span>Toplam:</span><span className="text-amber-700">{adisyonDetay.adisyon.toplam} ₺</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

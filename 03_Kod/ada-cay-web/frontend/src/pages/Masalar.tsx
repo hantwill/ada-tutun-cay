@@ -49,6 +49,7 @@ export default function Masalar() {
   const [kategoriler, setKategoriler] = useState<Kategori[]>([])
   const [seciliKategori, setSeciliKategori] = useState<string>('')
   const [mesaj, setMesaj] = useState('')
+  const [tasiModal, setTasiModal] = useState(false)
 
   const mesajGoster = (m: string) => { setMesaj(m); setTimeout(() => setMesaj(''), 2500) }
 
@@ -116,6 +117,27 @@ export default function Masalar() {
     } catch (e: any) { mesajGoster(String(e.message || e)) }
   }
 
+  const adisyonIptal = async () => {
+    if (!adisyon) return
+    if (!confirm('Adisyon iptal edilecek. Emin misiniz?')) return
+    try {
+      await apiPost(`/garson/adisyon/${adisyon.id}/iptal`, {}, token || undefined)
+      setAdisyon(null); setKalemler([]); setSeciliMasa(null); yukleMasalar()
+      mesajGoster('Adisyon iptal edildi')
+    } catch (e: any) { mesajGoster(String(e.message || e)) }
+  }
+
+  const adisyonTasi = async (hedefMasaId: number) => {
+    if (!adisyon) return
+    try {
+      await apiPost(`/garson/adisyon/${adisyon.id}/tasi`, { hedefMasaId }, token || undefined)
+      const yeniMasa = masalar.find(m => m.id === hedefMasaId)
+      setSeciliMasa(yeniMasa || null)
+      setTasiModal(false); yukleMasalar()
+      mesajGoster('Adisyon taşındı ✓')
+    } catch (e: any) { mesajGoster(String(e.message || e)) }
+  }
+
   const filtreliUrunler = seciliKategori ? urunler.filter(u => u.kategori_ad === seciliKategori) : urunler
 
   // === MASA LİSTESİ (telefon ekranı) ===
@@ -149,10 +171,24 @@ export default function Masalar() {
           <span className="text-base sm:text-lg font-bold">{seciliMasa.ad || `Masa ${seciliMasa.numara}`}</span>
           {adisyon && <span className="text-xs bg-amber-600 px-2 py-0.5 rounded-full">Adisyon #{adisyon.id}</span>}
         </div>
-        <button onClick={masadanCik}
-          className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-sm font-semibold transition">
-          ← Masalar
-        </button>
+        <div className="flex items-center gap-2">
+          {adisyon && (
+            <>
+              <button onClick={() => setTasiModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-lg text-sm font-semibold transition">
+                ↔ Taşı
+              </button>
+              <button onClick={adisyonIptal}
+                className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg text-sm font-semibold transition">
+                ✕ İptal
+              </button>
+            </>
+          )}
+          <button onClick={masadanCik}
+            className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-sm font-semibold transition">
+            ← Masalar
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
@@ -231,6 +267,27 @@ export default function Masalar() {
           )}
         </div>
       </div>
+
+      {tasiModal && adisyon && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Adisyonu Taşı</h3>
+            <p className="text-sm text-gray-500 mb-3">Boş bir masa seçin:</p>
+            <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto">
+              {masalar.filter(m => m.durum === 'bos' && m.id !== seciliMasa?.id).map((m) => (
+                <button key={m.id} onClick={() => adisyonTasi(m.id)}
+                  className="p-3 rounded-xl bg-gray-100 hover:bg-amber-100 text-sm font-semibold transition">
+                  {m.ad || `Masa ${m.numara}`}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setTasiModal(false)}
+              className="mt-4 w-full px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300">
+              Vazgeç
+            </button>
+          </div>
+        </div>
+      )}
 
       {mesaj && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-full text-sm z-50">{mesaj}</div>}
     </div>
