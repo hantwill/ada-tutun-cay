@@ -131,7 +131,7 @@ export default function MasaDuzeni() {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="relative flex-1 bg-amber-50/50 border-2 border-dashed border-amber-200 rounded-2xl overflow-hidden min-h-[400px] touch-none select-none"
+        className="relative h-[70vh] sm:h-auto sm:flex-1 bg-amber-50/50 border-2 border-dashed border-amber-200 rounded-2xl overflow-hidden touch-none select-none"
         style={{ touchAction: 'none' }}
       >
         {masalar.map((m) => (

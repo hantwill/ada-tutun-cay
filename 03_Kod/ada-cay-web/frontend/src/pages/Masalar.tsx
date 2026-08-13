@@ -157,8 +157,8 @@ export default function Masalar() {
         </div>
 
         {planModu ? (
-          /* Plan modu — admin ile birebir aynı canvas */
-          <div className="relative flex-1 bg-amber-50/50 border-2 border-dashed border-amber-200 rounded-2xl overflow-hidden min-h-[400px] touch-none select-none"
+          /* Plan modu — mobilde uzun, desktop'ta flex-1 */
+          <div className="relative h-[70vh] sm:h-auto sm:flex-1 bg-amber-50/50 border-2 border-dashed border-amber-200 rounded-2xl overflow-hidden touch-none select-none"
             style={{ touchAction: 'none' }}>
             {masalar.map((m) => (
               <button key={m.id} onClick={() => masaSec(m)}
