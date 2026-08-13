@@ -2,6 +2,7 @@ import { useStore } from './store'
 import Login from './pages/Login'
 import Masalar from './pages/Masalar'
 import Admin from './pages/Admin'
+import GarsonIslem from './pages/GarsonIslem'
 
 export default function App() {
   const { token, kullanici, logout, sayfa, setSayfa } = useStore()
@@ -19,11 +20,17 @@ export default function App() {
     { id: 'raporlar', icon: '📋', label: 'Raporlar' },
   ]
 
+  const menuGarson = [
+    { id: 'masalar', icon: '🍽️', label: 'Masalar' },
+    { id: 'islem', icon: '📋', label: 'İşlem' },
+  ]
+
   const isGarson = kullanici.rol === 'garson'
+  const menu = isGarson ? menuGarson : menuAdmin
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-gray-100">
-      {/* Sidebar — mobile'da üst bar, desktop'ta sol panel */}
+      {/* Sidebar */}
       <div className="md:w-60 bg-amber-900 text-white flex md:flex-col flex-row items-center justify-between md:justify-start md:h-full">
         <div className="p-3 md:p-4 md:border-b md:border-amber-700 flex-shrink-0">
           <h1 className="text-base md:text-xl font-bold whitespace-nowrap">🍵 Ada Çay Evi</h1>
@@ -31,13 +38,7 @@ export default function App() {
         </div>
 
         <div className="flex md:flex-1 md:flex-col md:p-2 flex-row gap-1 md:gap-0">
-          {isGarson && (
-            <button onClick={() => setSayfa('masalar')}
-              className={`px-3 py-2 md:px-4 md:py-3 rounded-lg md:mb-1 transition text-sm whitespace-nowrap ${
-                sayfa === 'masalar' ? 'bg-amber-600' : 'hover:bg-amber-800'
-              }`}>🍽️ <span className="md:inline hidden">Masalar</span></button>
-          )}
-          {!isGarson && menuAdmin.map((m) => (
+          {menu.map((m) => (
             <button key={m.id} onClick={() => setSayfa(m.id)}
               className={`px-3 py-2 md:px-4 md:py-3 rounded-lg md:mb-1 transition text-sm whitespace-nowrap ${
                 sayfa === m.id ? 'bg-amber-600' : 'hover:bg-amber-800'
@@ -54,6 +55,7 @@ export default function App() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {isGarson && sayfa === 'masalar' && <Masalar />}
+        {isGarson && sayfa === 'islem' && <GarsonIslem />}
         {!isGarson && <Admin />}
       </div>
     </div>

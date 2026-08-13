@@ -251,4 +251,35 @@ router.get('/kategoriler', async (_req, res) => {
   }
 });
 
+// Garson: Bugünün adisyonları (read-only)
+router.get('/rapor/adisyonlar', async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT a.id, a.toplam, a.odeme_tipi, a.durum, a.kapanis_tarih,
+              k.ad as garson_ad, m.numara as masa_numara
+       FROM adisyonlar a
+       JOIN kullanicilar k ON a.garson_id = k.id
+       JOIN masalar m ON a.masa_id = m.id
+       WHERE date(a.kapanis_tarih) = date(NOW())
+       AND a.durum = 'kapali'
+       ORDER BY a.kapanis_tarih DESC`
+    );
+    res.json(result.rows);
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
+// Garson: Bugünün gelir/gider'leri (read-only)
+router.get('/rapor/gelir-gider', async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM gelir_gider WHERE date(tarih) = date(NOW()) ORDER BY tarih DESC`
+    );
+    res.json(result.rows);
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
 export { router as garsonRoutes };
