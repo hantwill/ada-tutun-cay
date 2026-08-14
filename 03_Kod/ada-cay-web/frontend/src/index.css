@@ -4,3 +4,25 @@ body {
   margin: 0;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
+
+/* İkon boyutu: mobilde %5 küçük, PC'de (md+) %15 küçük */
+.icon {
+  display: inline-block;
+  font-size: 0.95em;
+  line-height: 1;
+}
+@media (min-width: 768px) {
+  .icon {
+    font-size: 0.85em;
+  }
+}
+
+/* Masa kartı boyutu: mobilde %5 küçük, PC'de (md+) %35 küçük */
+.masa-kart {
+  scale: 0.95;
+}
+@media (min-width: 768px) {
+  .masa-kart {
+    scale: 0.65;
+  }
+}

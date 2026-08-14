@@ -51,7 +51,7 @@ export default function GarsonIslem() {
 
   return (
     <div className="p-4 sm:p-6">
-      <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6">📋 Günün İşlemleri</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6"><span className="icon">📋</span> Günün İşlemleri</h1>
 
       {/* Özet kartları */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 sm:mb-6">

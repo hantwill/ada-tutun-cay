@@ -149,35 +149,37 @@ export default function Masalar() {
     return (
       <div className="flex flex-col h-full p-3 sm:p-4">
         <div className="flex items-center justify-between mb-3 sm:mb-4 flex-shrink-0">
-          <h2 className="text-lg sm:text-xl font-bold text-amber-800">🍽️ Masalar</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-amber-800"><span className="icon">🍽️</span> Masalar</h2>
           <button onClick={() => setPlanModu(!planModu)}
             className="px-3 py-1 rounded-lg bg-amber-100 text-amber-700 text-xs font-semibold hover:bg-amber-200 transition">
-            {planModu ? '📋 Liste' : '📐 Plan'}
+            {planModu ? <><span className="icon">📋</span> Liste</> : <><span className="icon">📐</span> Plan</>}
           </button>
         </div>
 
         {planModu ? (
-          /* Plan modu — mobilde uzun, desktop'ta flex-1 */
-          <div className="relative h-[70vh] sm:h-auto sm:flex-1 bg-amber-50/50 border-2 border-dashed border-amber-200 rounded-2xl overflow-hidden touch-none select-none"
-            style={{ touchAction: 'none' }}>
-            {masalar.map((m) => (
-              <button key={m.id} onClick={() => masaSec(m)}
-                className={`absolute w-[20%] min-w-[55px] aspect-[5/4] rounded-xl flex flex-col items-center justify-center transition font-semibold text-xs sm:text-sm select-none touch-none ${
-                  m.durum === 'dolu' ? 'bg-red-100 border-2 border-red-300 text-red-700 hover:bg-red-200' : 'bg-white border-2 border-amber-200 text-gray-700 hover:bg-amber-100 shadow-sm'
-                }`}
-                style={{ left: `${m.pos_x ?? 0}%`, top: `${m.pos_y ?? 0}%`, touchAction: 'none' }}>
-                <div className="text-[11px] sm:text-sm font-bold leading-tight text-center px-1 truncate w-full">{m.ad || `Masa ${m.numara}`}</div>
-                <div className="text-[10px] sm:text-xs opacity-60 mt-0.5">{m.kapasite} kişilik</div>
-                {m.durum === 'dolu' && <div className="text-[10px] sm:text-xs text-red-500 font-semibold mt-0.5">🔵 Dolu</div>}
-              </button>
-            ))}
+          /* Plan modu — sabit aspect ratio ile her ekranda aynı düzen */
+          <div className="flex-1 flex items-center justify-center min-h-0">
+            <div className="relative w-full aspect-[3/2] max-h-full max-w-full bg-amber-50/50 border-2 border-dashed border-amber-200 rounded-2xl overflow-hidden touch-none select-none"
+              style={{ touchAction: 'none' }}>
+              {masalar.map((m) => (
+                <button key={m.id} onClick={() => masaSec(m)}
+                  className={`masa-kart absolute w-[18%] min-w-[48px] aspect-[5/4] rounded-xl flex flex-col items-center justify-center transition font-semibold text-xs sm:text-sm select-none touch-none ${
+                    m.durum === 'dolu' ? 'bg-red-100 border-2 border-red-300 text-red-700 hover:bg-red-200' : 'bg-white border-2 border-amber-200 text-gray-700 hover:bg-amber-100 shadow-sm'
+                  }`}
+                  style={{ left: `${m.pos_x ?? 0}%`, top: `${m.pos_y ?? 0}%`, touchAction: 'none' }}>
+                  <div className="text-[14px] sm:text-base font-bold leading-tight text-center px-1 truncate w-full">{m.ad || `Masa ${m.numara}`}</div>
+                  <div className="text-[13px] sm:text-sm opacity-60 mt-0.5">{m.kapasite} kişilik</div>
+                  {m.durum === 'dolu' && <div className="text-[13px] sm:text-sm text-red-500 font-semibold mt-0.5">🔵 Dolu</div>}
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           /* Grid modu — klasik liste */
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 flex-1 content-start">
             {masalar.map((m) => (
               <button key={m.id} onClick={() => masaSec(m)}
-                className={`p-3 sm:p-4 rounded-xl text-center transition font-semibold text-sm sm:text-base ${
+                className={`masa-kart p-3 sm:p-4 rounded-xl text-center transition font-semibold text-sm sm:text-base ${
                   m.durum === 'dolu' ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-white text-gray-700 hover:bg-amber-100 shadow-sm'
                 }`}>
                 <div className="text-lg">{m.ad || `Masa ${m.numara}`}</div>
@@ -206,18 +208,15 @@ export default function Masalar() {
           {adisyon && (
             <>
               <button onClick={() => setTasiModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-lg text-sm font-semibold transition">
-                ↔ Taşı
+                className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-lg text-sm font-semibold transition"><span className="icon">↔</span> Taşı
               </button>
               <button onClick={() => setIptalOnay(true)}
-                className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg text-sm font-semibold transition">
-                ✕ İptal
+                className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg text-sm font-semibold transition"><span className="icon">✕</span> İptal
               </button>
             </>
           )}
           <button onClick={masadanCik}
-            className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-sm font-semibold transition">
-            ← Masalar
+            className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-sm font-semibold transition"><span className="icon">←</span> Masalar
           </button>
         </div>
       </div>
@@ -227,7 +226,7 @@ export default function Masalar() {
         <div className="md:w-1/2 p-3 sm:p-4 overflow-y-auto bg-white border-b md:border-b-0 md:border-r">
           {adisyon ? (
             <>
-              <h3 className="font-bold text-gray-700 mb-3 text-sm sm:text-base">📋 Adisyon</h3>
+              <h3 className="font-bold text-gray-700 mb-3 text-sm sm:text-base"><span className="icon">📋</span> Adisyon</h3>
               <div className="space-y-1 mb-3">
                 {kalemler.length === 0 ? (
                   <p className="text-gray-400 text-sm">Henüz ürün eklenmedi</p>
@@ -253,16 +252,16 @@ export default function Masalar() {
               </div>
               <div className="flex gap-2">
                 <button onClick={() => adisyonKapat('nakit')}
-                  className="flex-1 bg-green-600 text-white py-2 sm:py-3 rounded-lg font-semibold hover:bg-green-700 text-sm sm:text-base">💵 Nakit</button>
+                  className="flex-1 bg-green-600 text-white py-2 sm:py-3 rounded-lg font-semibold hover:bg-green-700 text-sm sm:text-base"><span className="icon">💵</span> Nakit</button>
                 <button onClick={() => adisyonKapat('kart')}
-                  className="flex-1 bg-blue-600 text-white py-2 sm:py-3 rounded-lg font-semibold hover:bg-blue-700 text-sm sm:text-base">💳 Kart</button>
+                  className="flex-1 bg-blue-600 text-white py-2 sm:py-3 rounded-lg font-semibold hover:bg-blue-700 text-sm sm:text-base"><span className="icon">💳</span> Kart</button>
               </div>
             </>
           ) : (
             <div className="flex flex-col items-center justify-center h-full">
               <p className="text-gray-400 mb-4 text-sm">Bu masada açık adisyon yok</p>
               <button onClick={adisyonAc}
-                className="bg-amber-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-amber-700">➕ Adisyon Aç</button>
+                className="bg-amber-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-amber-700"><span className="icon">➕</span> Adisyon Aç</button>
             </div>
           )}
         </div>

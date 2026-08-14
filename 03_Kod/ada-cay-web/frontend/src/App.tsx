@@ -44,13 +44,13 @@ export default function App() {
             <button key={m.id} onClick={() => setSayfa(m.id)}
               className={`px-3 py-2 md:px-4 md:py-3 rounded-lg md:mb-1 transition text-sm whitespace-nowrap ${
                 sayfa === m.id ? 'bg-amber-600' : 'hover:bg-amber-800'
-              }`}>{m.icon} <span className="md:inline hidden">{m.label}</span></button>
+              }`}><span className="icon">{m.icon}</span> <span className="md:inline hidden">{m.label}</span></button>
           ))}
         </div>
 
         <div className="md:p-2 md:border-t md:border-amber-700 flex-shrink-0">
           <button onClick={logout}
-            className="px-3 py-2 md:px-4 md:py-3 rounded-lg hover:bg-red-800 transition text-sm whitespace-nowrap">🚪 <span className="md:inline hidden">Çıkış</span></button>
+            className="px-3 py-2 md:px-4 md:py-3 rounded-lg hover:bg-red-800 transition text-sm whitespace-nowrap"><span className="icon">🚪</span> <span className="md:inline hidden">Çıkış</span></button>
         </div>
       </div>
 

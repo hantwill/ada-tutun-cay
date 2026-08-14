@@ -69,9 +69,9 @@ export default function MasaDuzeni() {
     const dyPct = ((e.clientY - dragRef.current.startPy) / rect.height) * 100
     let newX = dragRef.current.origX + dxPct
     let newY = dragRef.current.origY + dyPct
-    // Clamp 0-86% (card ~14% genişliğinde)
-    newX = Math.max(0, Math.min(newX, 86))
-    newY = Math.max(0, Math.min(newY, 88))
+    // Clamp 0-82% (card ~18% genişliğinde)
+    newX = Math.max(0, Math.min(newX, 82))
+    newY = Math.max(0, Math.min(newY, 78))
     const id = dragRef.current.id
     setMasalar(prev => prev.map(m => m.id === id ? { ...m, pos_x: Math.round(newX * 10) / 10, pos_y: Math.round(newY * 10) / 10 } : m))
   }
@@ -95,8 +95,8 @@ export default function MasaDuzeni() {
   const otomatikDagit = () => {
     setMasalar(prev => prev.map((m, i) => ({
       ...m,
-      pos_x: (i % 6) * 14 + 2,
-      pos_y: Math.floor(i / 6) * 18 + 2,
+      pos_x: (i % 5) * 18 + 2,
+      pos_y: Math.floor(i / 5) * 22 + 2,
     })))
     mesajGoster('Otomatik dağıtıldı — kaydediliyor...')
     // Tümünü kaydet
@@ -105,7 +105,7 @@ export default function MasaDuzeni() {
         const data = await apiGet('/garson/masalar', token || undefined)
         for (const m of data) {
           const idx = data.indexOf(m)
-          const newPos = { x: (idx % 6) * 14 + 2, y: (Math.floor(idx / 6) * 18 + 2) }
+          const newPos = { x: (idx % 5) * 18 + 2, y: (Math.floor(idx / 5) * 22 + 2) }
           await apiPut(`/admin/masalar/${m.id}/konum`, { pos_x: newPos.x, pos_y: newPos.y }, token || undefined)
         }
         mesajGoster('Kaydedildi ✓')
@@ -127,19 +127,20 @@ export default function MasaDuzeni() {
         Masaları sürükleyerek istediğiniz yere bırakın. Bıraktığınızda otomatik kaydedilir.
       </p>
 
-      <div
-        ref={canvasRef}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        className="relative h-[70vh] sm:h-auto sm:flex-1 bg-amber-50/50 border-2 border-dashed border-amber-200 rounded-2xl overflow-hidden touch-none select-none"
-        style={{ touchAction: 'none' }}
-      >
+      <div className="flex-1 flex items-center justify-center min-h-0">
+        <div
+          ref={canvasRef}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          className="relative w-full aspect-[3/2] max-h-full max-w-full bg-amber-50/50 border-2 border-dashed border-amber-200 rounded-2xl overflow-hidden touch-none select-none"
+          style={{ touchAction: 'none' }}
+        >
         {masalar.map((m) => (
           <div
             key={m.id}
             onPointerDown={(e) => onPointerDown(e, m)}
-            className={`absolute w-[13%] min-w-[42px] max-w-[90px] aspect-[5/4] rounded-xl flex flex-col items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none ${
+            className={`masa-kart absolute w-[18%] min-w-[48px] aspect-[5/4] rounded-xl flex flex-col items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none ${
               draggingId === m.id ? 'shadow-2xl ring-2 ring-amber-500 scale-105 z-50' : 'shadow-md hover:shadow-lg'
             } ${
               m.durum === 'dolu' ? 'bg-red-100 border-2 border-red-300' : 'bg-white border-2 border-amber-200'
@@ -150,13 +151,14 @@ export default function MasaDuzeni() {
               touchAction: 'none',
             }}
           >
-            <div className="text-[11px] sm:text-sm font-bold text-gray-700 text-center leading-tight px-1 truncate w-full">
+            <div className="text-[14px] sm:text-base font-bold text-gray-700 text-center leading-tight px-1 truncate w-full">
               {m.ad || `Masa ${m.numara}`}
             </div>
-            <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5">{m.kapasite} kişilik</div>
-            {m.durum === 'dolu' && <div className="text-[10px] sm:text-xs text-red-500 font-semibold mt-0.5">🔵 Dolu</div>}
+            <div className="text-[13px] sm:text-sm text-gray-400 mt-0.5">{m.kapasite} kişilik</div>
+            {m.durum === 'dolu' && <div className="text-[13px] sm:text-sm text-red-500 font-semibold mt-0.5">🔵 Dolu</div>}
           </div>
         ))}
+        </div>
       </div>
 
       {mesaj && (

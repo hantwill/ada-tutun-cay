@@ -159,7 +159,7 @@ export default function Admin() {
   if (sayfa === 'dashboard') {
     return (
       <div className="p-4 sm:p-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6">📊 Dashboard</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6"><span className="icon">📊</span> Dashboard</h1>
         {data && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {[
@@ -191,7 +191,7 @@ export default function Admin() {
   if (sayfa === 'garsonlar') {
     return (
       <div className="p-4 sm:p-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6">👥 Kullanıcılar</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6"><span className="icon">👥</span> Kullanıcılar</h1>
         <div className="bg-white rounded-xl p-4 sm:p-6 shadow mb-4 sm:mb-6">
           <h2 className="font-semibold mb-4">Yeni Kullanıcı</h2>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -287,7 +287,7 @@ export default function Admin() {
   if (sayfa === 'masalar') {
     return (
       <div className="p-4 sm:p-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6">🪑 Masalar</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6"><span className="icon">🪑</span> Masalar</h1>
 
         {/* Yeni masa ekleme */}
         <div className="bg-white rounded-xl p-4 sm:p-6 shadow mb-4 sm:mb-6">
@@ -414,7 +414,7 @@ export default function Admin() {
   if (sayfa === 'urunler') {
     return (
       <div className="p-4 sm:p-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6">🍽️ Ürünler</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6"><span className="icon">🍽️</span> Ürünler</h1>
 
         {/* Yeni ürün ekleme */}
         <div className="bg-white rounded-xl p-4 sm:p-6 shadow mb-4 sm:mb-6">
@@ -556,7 +556,7 @@ export default function Admin() {
     const giderToplam = gelirGiderList.filter(g => g.tip === 'gider').reduce((s, g) => s + parseFloat(g.miktar), 0)
     return (
       <div className="p-4 sm:p-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6">💰 Gelir / Gider</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6"><span className="icon">💰</span> Gelir / Gider</h1>
 
         {/* Ekleme formu */}
         <div className="bg-white rounded-xl p-4 sm:p-6 shadow mb-4 sm:mb-6">
@@ -675,7 +675,7 @@ export default function Admin() {
 
     return (
       <div className="p-4 sm:p-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6">📋 Raporlar</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6"><span className="icon">📋</span> Raporlar</h1>
 
         {/* Tarih aralığı + Excel */}
         <div className="bg-white rounded-xl p-4 shadow mb-4 sm:mb-6">
@@ -694,7 +694,7 @@ export default function Admin() {
               <button onClick={yukleRapor}
                 className="bg-amber-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-amber-700 whitespace-nowrap">Getir</button>
               <button onClick={indirCSV}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 whitespace-nowrap">📊 Excel</button>
+                className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 whitespace-nowrap"><span className="icon">📊</span> Excel</button>
             </div>
           </div>
         </div>

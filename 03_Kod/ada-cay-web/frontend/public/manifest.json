@@ -1,0 +1,31 @@
+{
+  "name": "Ada Çay Evi",
+  "short_name": "Ada Çay",
+  "description": "Adisyon yönetim sistemi — masalar, garson, raporlar",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#78350f",
+  "theme_color": "#d97706",
+  "lang": "tr",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
