@@ -69,9 +69,9 @@ export default function MasaDuzeni() {
     const dyPct = ((e.clientY - dragRef.current.startPy) / rect.height) * 100
     let newX = dragRef.current.origX + dxPct
     let newY = dragRef.current.origY + dyPct
-    // Clamp 0-85% (card ~15% genişliğinde)
-    newX = Math.max(0, Math.min(newX, 85))
-    newY = Math.max(0, Math.min(newY, 85))
+    // Clamp 0-80% (card ~20% genişliğinde)
+    newX = Math.max(0, Math.min(newX, 80))
+    newY = Math.max(0, Math.min(newY, 80))
     const id = dragRef.current.id
     setMasalar(prev => prev.map(m => m.id === id ? { ...m, pos_x: Math.round(newX * 10) / 10, pos_y: Math.round(newY * 10) / 10 } : m))
   }
@@ -138,7 +138,7 @@ export default function MasaDuzeni() {
           <div
             key={m.id}
             onPointerDown={(e) => onPointerDown(e, m)}
-            className={`absolute w-20 sm:w-28 h-16 sm:h-24 rounded-xl flex flex-col items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none ${
+            className={`absolute w-[20%] min-w-[55px] aspect-[5/4] rounded-xl flex flex-col items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none ${
               draggingId === m.id ? 'shadow-2xl ring-2 ring-amber-500 scale-105 z-50' : 'shadow-md hover:shadow-lg'
             } ${
               m.durum === 'dolu' ? 'bg-red-100 border-2 border-red-300' : 'bg-white border-2 border-amber-200'
@@ -149,11 +149,11 @@ export default function MasaDuzeni() {
               touchAction: 'none',
             }}
           >
-            <div className="text-sm sm:text-base font-bold text-gray-700 text-center leading-tight px-1">
+            <div className="text-[11px] sm:text-sm font-bold text-gray-700 text-center leading-tight px-1 truncate w-full">
               {m.ad || `Masa ${m.numara}`}
             </div>
-            <div className="text-xs text-gray-400 mt-0.5">{m.kapasite} kişilik</div>
-            {m.durum === 'dolu' && <div className="text-xs text-red-500 font-semibold mt-0.5">🔵 Dolu</div>}
+            <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5">{m.kapasite} kişilik</div>
+            {m.durum === 'dolu' && <div className="text-[10px] sm:text-xs text-red-500 font-semibold mt-0.5">🔵 Dolu</div>}
           </div>
         ))}
       </div>

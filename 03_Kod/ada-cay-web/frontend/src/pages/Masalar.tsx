@@ -162,13 +162,13 @@ export default function Masalar() {
             style={{ touchAction: 'none' }}>
             {masalar.map((m) => (
               <button key={m.id} onClick={() => masaSec(m)}
-                className={`absolute w-20 sm:w-28 h-16 sm:h-24 rounded-xl flex flex-col items-center justify-center transition font-semibold text-xs sm:text-sm select-none touch-none ${
+                className={`absolute w-[20%] min-w-[55px] aspect-[5/4] rounded-xl flex flex-col items-center justify-center transition font-semibold text-xs sm:text-sm select-none touch-none ${
                   m.durum === 'dolu' ? 'bg-red-100 border-2 border-red-300 text-red-700 hover:bg-red-200' : 'bg-white border-2 border-amber-200 text-gray-700 hover:bg-amber-100 shadow-sm'
                 }`}
                 style={{ left: `${m.pos_x ?? 0}%`, top: `${m.pos_y ?? 0}%`, touchAction: 'none' }}>
-                <div className="text-sm sm:text-base font-bold leading-tight text-center px-1">{m.ad || `Masa ${m.numara}`}</div>
-                <div className="text-xs opacity-60 mt-0.5">{m.kapasite} kişilik</div>
-                {m.durum === 'dolu' && <div className="text-xs text-red-500 font-semibold mt-0.5">🔵 Dolu</div>}
+                <div className="text-[11px] sm:text-sm font-bold leading-tight text-center px-1 truncate w-full">{m.ad || `Masa ${m.numara}`}</div>
+                <div className="text-[10px] sm:text-xs opacity-60 mt-0.5">{m.kapasite} kişilik</div>
+                {m.durum === 'dolu' && <div className="text-[10px] sm:text-xs text-red-500 font-semibold mt-0.5">🔵 Dolu</div>}
               </button>
             ))}
           </div>
