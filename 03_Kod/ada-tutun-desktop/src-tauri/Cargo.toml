@@ -1,6 +1,6 @@
 [package]
 name = "ada-tutun"
-version = "1.0.1"
+version = "1.0.3"
 description = "Ada Tütün POS — Satış ve Stok Yönetim"
 authors = ["NOVA"]
 license = "MIT"
@@ -23,5 +23,6 @@ tauri-plugin-log = "2"
 rusqlite = { version = "0.32", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
 sha2 = "0.10"
+bcrypt = "0.17"
 tauri-plugin-dialog = "2"
 # chrono ve uuid suan kullanilmiyor — sadelestirildi

@@ -1,10 +1,81 @@
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
 use tauri::Manager;
 
 // === DB STATE ===
 pub struct DbState(pub Mutex<Connection>);
+
+// === LOGIN RATE LIMITER ===
+// 5 deneme / 15 dakika — IP veya kullanıcı adı bazlı
+struct LoginAttempt {
+    count: u32,
+    first_attempt: Instant,
+}
+static LOGIN_LIMITER: std::sync::LazyLock<Mutex<HashMap<String, LoginAttempt>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+const LOGIN_MAX_ATTEMPTS: u32 = 5;
+const LOGIN_WINDOW: Duration = Duration::from_secs(15 * 60);
+
+fn check_login_limit(key: &str) -> Result<(), String> {
+    let mut map = LOGIN_LIMITER.lock().map_err(|e| e.to_string())?;
+    let now = Instant::now();
+    match map.get_mut(key) {
+        Some(entry) => {
+            if now.duration_since(entry.first_attempt) < LOGIN_WINDOW {
+                if entry.count >= LOGIN_MAX_ATTEMPTS {
+                    return Err("Çok fazla giriş denemesi, 15 dakika bekleyin".to_string());
+                }
+                entry.count += 1;
+            } else {
+                // Pencere doldu, sıfırla
+                entry.count = 1;
+                entry.first_attempt = now;
+            }
+        }
+        None => {
+            map.insert(key.to_string(), LoginAttempt { count: 1, first_attempt: now });
+        }
+    }
+    Ok(())
+}
+
+fn clear_login_limit(key: &str) {
+    if let Ok(mut map) = LOGIN_LIMITER.lock() {
+        map.remove(key);
+    }
+}
+
+// === PASSWORD HASHING ===
+// bcrypt 12 rounds — çay evi ile aynı
+fn hash_password(plain: &str) -> String {
+    bcrypt::hash(plain, 12).unwrap_or_else(|_| {
+        // Fallback: hiçbir zaman düşmemeli ama güvenlik
+        sha256_hash(plain)
+    })
+}
+
+fn verify_password(plain: &str, hash: &str) -> bool {
+    // Yeni bcrypt hash ($2b$ ile başlar)
+    if hash.starts_with("$2") {
+        return bcrypt::verify(plain, hash).unwrap_or(false);
+    }
+    // Eski SHA-256 hash — giriş yapınca bcrypt'e migrate edilecek
+    let computed = sha256_hash(plain);
+    if computed.len() != hash.len() {
+        return false;
+    }
+    // Constant-time comparison
+    let a = computed.as_bytes();
+    let b = hash.as_bytes();
+    let mut diff: u8 = 0;
+    for i in 0..a.len() {
+        diff |= a[i] ^ b[i];
+    }
+    diff == 0
+}
 
 // === MODELS ===
 #[derive(Serialize, Deserialize, Debug)]
@@ -208,10 +279,10 @@ fn init_db(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    // Default admin
+    // Default admin — bcrypt hash (şifre: admin123, ilk giriş değiştirilmeli)
     let user_count: i64 = conn.query_row("SELECT COUNT(*) FROM kullanicilar", [], |r| r.get(0))?;
     if user_count == 0 {
-        let hash = sha256_hash("admin123");
+        let hash = hash_password("admin123");
         conn.execute(
             "INSERT INTO kullanicilar (kullanici_ad, sifre_hash, rol, ad) VALUES ('admin', ?1, 'admin', 'Yonetici')",
             [&hash],
@@ -233,22 +304,41 @@ fn sha256_hash(input: &str) -> String {
 
 #[tauri::command]
 fn login(db: tauri::State<DbState>, kullanici_ad: String, sifre: String) -> Result<Option<Kullanici>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let hash = sha256_hash(&sifre);
+    // Brute force koruması — 5 deneme / 15 dakika
+    check_login_limit(&kullanici_ad)?;
     
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    
+    // Önce kullanıcıyı bul (hash olmadan)
     let result = conn.query_row(
-        "SELECT id, kullanici_ad, ad, rol FROM kullanicilar WHERE kullanici_ad = ?1 AND sifre_hash = ?2 AND aktif = 1",
-        rusqlite::params![kullanici_ad, hash],
-        |row| Ok(Kullanici {
+        "SELECT id, kullanici_ad, ad, rol, sifre_hash FROM kullanicilar WHERE kullanici_ad = ?1 AND aktif = 1",
+        rusqlite::params![kullanici_ad],
+        |row| Ok((Kullanici {
             id: row.get(0)?,
             kullanici_ad: row.get(1)?,
             ad: row.get(2)?,
             rol: row.get(3)?,
-        }),
+        }, row.get::<_, String>(4)?)),
     );
 
     match result {
-        Ok(k) => Ok(Some(k)),
+        Ok((kullanici, db_hash)) => {
+            if verify_password(&sifre, &db_hash) {
+                // Eski SHA-256 hash ise bcrypt'e migrate et
+                if !db_hash.starts_with("$2") {
+                    let new_hash = hash_password(&sifre);
+                    conn.execute(
+                        "UPDATE kullanicilar SET sifre_hash = ?1 WHERE id = ?2",
+                        rusqlite::params![new_hash, kullanici.id],
+                    ).map_err(|e| e.to_string())?;
+                }
+                // Başarılı giriş — limiti temizle
+                clear_login_limit(&kullanici_ad);
+                Ok(Some(kullanici))
+            } else {
+                Ok(None)
+            }
+        }
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(e.to_string()),
     }
@@ -290,14 +380,14 @@ fn kullanici_ekle(
     if kullanici_ad.trim().is_empty() {
         return Err("Kullanıcı adı boş olamaz".to_string());
     }
-    if sifre.len() < 3 {
-        return Err("Şifre en az 3 karakter olmalı".to_string());
+    if sifre.len() < 6 {
+        return Err("Şifre en az 6 karakter olmalı".to_string());
     }
     if !["admin", "satis"].contains(&rol.as_str()) {
         return Err("Rol admin veya satis olmalı".to_string());
     }
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let hash = sha256_hash(&sifre);
+    let hash = hash_password(&sifre);
     conn.execute(
         "INSERT INTO kullanicilar (kullanici_ad, sifre_hash, rol, ad) VALUES (?1, ?2, ?3, ?4)",
         rusqlite::params![kullanici_ad, hash, rol, ad],
@@ -305,7 +395,7 @@ fn kullanici_ekle(
         if e.to_string().contains("UNIQUE") {
             "Bu kullanıcı adı zaten mevcut".to_string()
         } else {
-            e.to_string()
+            "Sunucu hatası".to_string()
         }
     })?;
     Ok(conn.last_insert_rowid())
@@ -317,15 +407,15 @@ fn kullanici_sifre_degistir(
     kullanici_id: i64,
     yeni_sifre: String,
 ) -> Result<(), String> {
-    if yeni_sifre.len() < 3 {
-        return Err("Şifre en az 3 karakter olmalı".to_string());
+    if yeni_sifre.len() < 6 {
+        return Err("Şifre en az 6 karakter olmalı".to_string());
     }
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let hash = sha256_hash(&yeni_sifre);
+    let hash = hash_password(&yeni_sifre);
     conn.execute(
         "UPDATE kullanicilar SET sifre_hash = ?1 WHERE id = ?2",
         rusqlite::params![hash, kullanici_id],
-    ).map_err(|e| e.to_string())?;
+    ).map_err(|_| "Sunucu hatası".to_string())?;
     Ok(())
 }
 
@@ -756,15 +846,15 @@ fn export_satislar_csv_yol(
     bitis: String,
     hedef_yol: String,
 ) -> Result<String, String> {
+    let file_path = sanitize_path(&hedef_yol)?;
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let file_path = std::path::PathBuf::from(&hedef_yol);
     
     let mut stmt = conn.prepare(
         "SELECT s.id, s.tarih, k.ad, s.ara_toplam, s.indirim, s.toplam, s.odeme_tipi, s.durum
          FROM satislar s JOIN kullanicilar k ON s.kullanici_id = k.id
          WHERE date(s.tarih) BETWEEN date(?1) AND date(?2)
          ORDER BY s.tarih DESC"
-    ).map_err(|e| e.to_string())?;
+    ).map_err(|_| "Sunucu hatası".to_string())?;
     
     let satislar = stmt.query_map(rusqlite::params![baslangic, bitis], |row| {
         Ok(Satis {
@@ -973,24 +1063,41 @@ fn shift_kapat(db: tauri::State<DbState>, shift_id: i64, kapanis_kasa: f64) -> R
 
 // === YEDEKLEME ===
 
+// Path traversal koruması: .. ve mutlak path'leri engelle
+fn sanitize_path(yol: &str) -> Result<std::path::PathBuf, String> {
+    let path = std::path::PathBuf::from(yol);
+    // Mutlak path reddet (C:\, /etc/passwd vb.)
+    if path.is_absolute() {
+        return Err("Mutlak yol verilmez".to_string());
+    }
+    // .. içeremez
+    for component in path.components() {
+        if matches!(component, std::path::Component::ParentDir) {
+            return Err("Geçersiz yol".to_string());
+        }
+    }
+    Ok(path)
+}
+
 #[tauri::command]
 fn db_yedekle_yol(db: tauri::State<DbState>, hedef_yol: String) -> Result<String, String> {
+    let safe_path = sanitize_path(&hedef_yol)?;
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let file_path = std::path::PathBuf::from(&hedef_yol);
-    // SQL injection korumasi: tek tirnak escape
-    let safe_path = hedef_yol.replace('\'', "''");
-    conn.execute(&format!("VACUUM INTO '{}'", safe_path), [])
-        .map_err(|e| format!("Yedekleme hatasi: {}", e))?;
-    Ok(file_path.to_string_lossy().to_string())
+    // VACUUM INTO parametre desteklemez — tek tırnak escape yeterli
+    let escaped = hedef_yol.replace('\'', "''");
+    conn.execute(&format!("VACUUM INTO '{}'", escaped), [])
+        .map_err(|_| "Yedekleme hatası".to_string())?;
+    Ok(safe_path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
 fn db_geri_yukle_yol(_db: tauri::State<DbState>, kaynak_yol: String) -> Result<String, String> {
+    let safe_source = sanitize_path(&kaynak_yol)?;
     let db_path = std::env::current_dir().unwrap_or_default().join("ada_tutun.db");
     let backup_name = format!("ada_tutun_otomatik_yedek_{}.db", chrono::Local::now().format("%Y%m%d_%H%M%S"));
     let backup_path = db_path.with_file_name(&backup_name);
-    std::fs::copy(&db_path, &backup_path).map_err(|e| format!("Otomatik yedek hatasi: {}", e))?;
-    std::fs::copy(&kaynak_yol, &db_path).map_err(|e| format!("Geri yukleme hatasi: {}", e))?;
+    std::fs::copy(&db_path, &backup_path).map_err(|_| "Otomatik yedek hatası".to_string())?;
+    std::fs::copy(&safe_source, &db_path).map_err(|_| "Geri yükleme hatası".to_string())?;
     Ok(format!("Geri yuklendi. Otomatik yedek: {}", backup_path.to_string_lossy()))
 }
 
