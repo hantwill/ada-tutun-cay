@@ -33,8 +33,8 @@ services:
       DB_NAME: ada_cay
       DB_USER: ${DB_USER:-postgres}
       DB_PASS: ${DB_PASS:-ada_cay_secure_2026}
-      JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
-      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      JWT_SECRET: ${JWT_SECRET:-M4owsJrRWdyxzArcaWi2uJzBiM7guJfcGECgSlw60Yrok0fEx8fjc8xUhG9g0OVs}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
       PORT: 3001
     expose:
       - "3001"
