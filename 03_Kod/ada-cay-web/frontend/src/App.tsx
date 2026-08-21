@@ -20,6 +20,7 @@ export default function App() {
     { id: 'urunler', icon: '📋', label: 'Ürünler' },
     { id: 'gelir-gider', icon: '💰', label: 'Gelir/Gider' },
     { id: 'raporlar', icon: '📋', label: 'Raporlar' },
+    { id: 'iptaller', icon: '🚫', label: 'İptaller' },
   ]
 
   const menuGarson = [

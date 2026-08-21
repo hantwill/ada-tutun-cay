@@ -6,7 +6,7 @@ interface AdisyonRapor {
   garson_ad: string
   masa_numara: string
   toplam: string
-  odeme_tipi: string
+  odeme_tipi: string | null
   durum: string
   kapanis_tarih: string
 }
@@ -71,6 +71,45 @@ export default function GarsonIslem() {
           <div className="text-xs text-gray-500">Net Kasa</div>
           <div className="text-base sm:text-lg font-bold text-gray-800">{(satisToplam + gelirToplam - giderToplam).toFixed(2)} ₺</div>
         </div>
+      </div>
+
+      {/* Nakit/Kart adisyon breakdown */}
+      <div className="bg-white rounded-xl shadow mb-4 sm:mb-6 overflow-x-auto">
+        <h3 className="p-3 sm:p-4 font-semibold border-b">Ödeme Tipi Özeti</h3>
+        <table className="w-full min-w-[400px]">
+          <thead className="bg-gray-50"><tr>
+            <th className="text-left p-3">Tip</th>
+            <th className="text-right p-3">Adet</th>
+            <th className="text-right p-3">Toplam</th>
+          </tr></thead>
+          <tbody>
+            {(() => {
+              const nakit = adisyonlar.filter(a => a.odeme_tipi === 'nakit')
+              const kart = adisyonlar.filter(a => a.odeme_tipi === 'kart')
+              const nakitToplam = nakit.reduce((s, a) => s + parseFloat(a.toplam), 0)
+              const kartToplam = kart.reduce((s, a) => s + parseFloat(a.toplam), 0)
+              return (
+                <>
+                  <tr className="border-b">
+                    <td className="p-3 font-medium">💵 Nakit Adisyon</td>
+                    <td className="p-3 text-right">{nakit.length}</td>
+                    <td className="p-3 text-right font-semibold text-amber-700">{nakitToplam.toFixed(2)} ₺</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-3 font-medium">💳 Kart Adisyon</td>
+                    <td className="p-3 text-right">{kart.length}</td>
+                    <td className="p-3 text-right font-semibold text-amber-700">{kartToplam.toFixed(2)} ₺</td>
+                  </tr>
+                  <tr className="border-b bg-gray-50 font-bold">
+                    <td className="p-3">Toplam (Kasa)</td>
+                    <td className="p-3 text-right">{nakit.length + kart.length}</td>
+                    <td className="p-3 text-right text-amber-700">{(nakitToplam + kartToplam).toFixed(2)} ₺</td>
+                  </tr>
+                </>
+              )
+            })()}
+          </tbody>
+        </table>
       </div>
 
       {/* Adisyonlar */}

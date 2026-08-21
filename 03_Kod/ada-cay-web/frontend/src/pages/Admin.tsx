@@ -55,7 +55,7 @@ interface AdisyonRapor {
   garson_ad: string
   masa_numara: string
   toplam: string
-  odeme_tipi: string
+  odeme_tipi: string | null
   durum: string
   kapanis_tarih: string
 }
@@ -86,6 +86,9 @@ export default function Admin() {
   const [silOnay, setSilOnay] = useState<{ id: number; ad: string; tip: string } | null>(null)
   const [editUrun, setEditUrun] = useState<Urun | null>(null)
   const [adisyonDetay, setAdisyonDetay] = useState<any>(null)
+  const [iptalAdisyonlar, setIptalAdisyonlar] = useState<any[]>([])
+  const [iptalBaslangic, setIptalBaslangic] = useState('')
+  const [iptalBitis, setIptalBitis] = useState('')
 
   const mesajGoster = (m: string) => { setMesaj(m); setTimeout(() => setMesaj(''), 2500) }
 
@@ -134,11 +137,21 @@ export default function Admin() {
     } catch (e) { console.error(e) }
   }, [token, raporBaslangic, raporBitis])
 
+  const yukleIptaller = useCallback(async () => {
+    try {
+      let url = '/admin/iptal-adisyonlar'
+      if (iptalBaslangic && iptalBitis) url += `?baslangic=${iptalBaslangic}&bitis=${iptalBitis}`
+      const data = await apiGet(url, token || undefined)
+      setIptalAdisyonlar(data || [])
+    } catch (e) { console.error(e) }
+  }, [token, iptalBaslangic, iptalBitis])
+
   useEffect(() => { yukle() }, [yukle])
   useEffect(() => { if (sayfa === 'urunler') yukleUrunler() }, [sayfa, yukleUrunler])
   useEffect(() => { if (sayfa === 'masalar') yukleMasalar() }, [sayfa, yukleMasalar])
   useEffect(() => { if (sayfa === 'gelir-gider') yukleGelirGider() }, [sayfa, yukleGelirGider])
   useEffect(() => { if (sayfa === 'raporlar') yukleRapor() }, [sayfa, yukleRapor])
+  useEffect(() => { if (sayfa === 'iptaller') yukleIptaller() }, [sayfa, yukleIptaller])
 
   const indirCSV = async () => {
     const API = import.meta.env.VITE_API_URL || ''
@@ -719,6 +732,45 @@ export default function Admin() {
           </div>
         </div>
 
+        {/* Nakit/Kart adisyon breakdown */}
+        <div className="bg-white rounded-xl shadow mb-4 sm:mb-6 overflow-x-auto">
+          <h3 className="p-3 sm:p-4 font-semibold border-b">Ödeme Tipi Özeti</h3>
+          <table className="w-full min-w-[400px]">
+            <thead className="bg-gray-50"><tr>
+              <th className="text-left p-3">Tip</th>
+              <th className="text-right p-3">Adet</th>
+              <th className="text-right p-3">Toplam</th>
+            </tr></thead>
+            <tbody>
+              {(() => {
+                const nakit = raporAdisyonlar.filter(a => a.odeme_tipi === 'nakit')
+                const kart = raporAdisyonlar.filter(a => a.odeme_tipi === 'kart')
+                const nakitToplam = nakit.reduce((s, a) => s + parseFloat(a.toplam), 0)
+                const kartToplam = kart.reduce((s, a) => s + parseFloat(a.toplam), 0)
+                return (
+                  <>
+                    <tr className="border-b">
+                      <td className="p-3 font-medium">💵 Nakit Adisyon</td>
+                      <td className="p-3 text-right">{nakit.length}</td>
+                      <td className="p-3 text-right font-semibold text-amber-700">{nakitToplam.toFixed(2)} ₺</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="p-3 font-medium">💳 Kart Adisyon</td>
+                      <td className="p-3 text-right">{kart.length}</td>
+                      <td className="p-3 text-right font-semibold text-amber-700">{kartToplam.toFixed(2)} ₺</td>
+                    </tr>
+                    <tr className="border-b bg-gray-50 font-bold">
+                      <td className="p-3">Toplam (Kasa)</td>
+                      <td className="p-3 text-right">{nakit.length + kart.length}</td>
+                      <td className="p-3 text-right text-amber-700">{(nakitToplam + kartToplam).toFixed(2)} ₺</td>
+                    </tr>
+                  </>
+                )
+              })()}
+            </tbody>
+          </table>
+        </div>
+
         {/* Adisyonlar */}
         <div className="bg-white rounded-xl shadow mb-4 sm:mb-6 overflow-x-auto">
           <h3 className="p-3 sm:p-4 font-semibold border-b">Adisyonlar ({raporAdisyonlar.length})</h3>
@@ -858,6 +910,134 @@ export default function Admin() {
             </div>
           </div>
         )}
+      </div>
+    )
+  }
+
+  // === İPTAL ADİSYONLAR ===
+  if (sayfa === 'iptaller') {
+    const iptalToplam = iptalAdisyonlar.reduce((s: number, a: any) => s + parseFloat(a.toplam || '0'), 0)
+    return (
+      <div className="p-4 sm:p-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4 sm:mb-6"><span className="icon">🚫</span> İptal Adisyonlar</h1>
+
+        {/* Tarih aralığı filtre */}
+        <div className="bg-white rounded-xl p-4 shadow mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
+            <div>
+              <label className="text-xs text-gray-500">Başlangıç (opsiyonel)</label>
+              <input type="date" value={iptalBaslangic} onChange={(e) => setIptalBaslangic(e.target.value)}
+                className="block px-3 py-2 rounded-lg border outline-none focus:ring-2 focus:ring-amber-500" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">Bitiş (opsiyonel)</label>
+              <input type="date" value={iptalBitis} onChange={(e) => setIptalBitis(e.target.value)}
+                className="block px-3 py-2 rounded-lg border outline-none focus:ring-2 focus:ring-amber-500" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={yukleIptaller}
+                className="bg-amber-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-amber-700 whitespace-nowrap">Getir</button>
+              <button onClick={() => { setIptalBaslangic(''); setIptalBitis(''); }}
+                className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 whitespace-nowrap">Temizle</button>
+            </div>
+          </div>
+        </div>
+
+        {/* Özet */}
+        <div className="grid grid-cols-2 gap-3 mb-4 sm:mb-6">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4 text-center">
+            <div className="text-xs text-red-600">İptal Adisyon Sayısı</div>
+            <div className="text-lg sm:text-xl font-bold text-red-700">{iptalAdisyonlar.length}</div>
+          </div>
+          <div className="bg-gray-100 border border-gray-300 rounded-xl p-3 sm:p-4 text-center">
+            <div className="text-xs text-gray-500">İptal Tutar Toplam</div>
+            <div className="text-lg sm:text-xl font-bold text-gray-800">{iptalToplam.toFixed(2)} ₺</div>
+          </div>
+        </div>
+
+        {/* Liste */}
+        <div className="bg-white rounded-xl shadow overflow-x-auto">
+          <h3 className="p-3 sm:p-4 font-semibold border-b">İptal Edilen Adisyonlar ({iptalAdisyonlar.length})</h3>
+          <table className="w-full min-w-[500px]">
+            <thead className="bg-gray-50"><tr>
+              <th className="text-left p-3">#</th><th className="text-left p-3">Açılış</th>
+              <th className="text-left p-3">İptal Tarihi</th><th className="text-left p-3">Garson</th>
+              <th className="text-left p-3">Masa</th><th className="text-left p-3">Tutar</th>
+            </tr></thead>
+            <tbody>
+              {iptalAdisyonlar.length === 0 ? (
+                <tr><td colSpan={6} className="p-6 text-center text-gray-400">İptal adisyon yok</td></tr>
+              ) : iptalAdisyonlar.map((a: any) => (
+                <tr key={a.id} className="border-b hover:bg-red-50 cursor-pointer" onClick={async () => {
+                  try {
+                    const detay = await apiGet(`/admin/rapor/adisyon/${a.id}`, token || undefined)
+                    setAdisyonDetay(detay)
+                  } catch (e: any) { mesajGoster(String(e.message || e)) }
+                }}>
+                  <td className="p-3">#{a.id}</td>
+                  <td className="p-3 text-sm">{new Date(a.acilis_tarih).toLocaleString('tr-TR')}</td>
+                  <td className="p-3 text-sm text-red-600">{new Date(a.kapanis_tarih).toLocaleString('tr-TR')}</td>
+                  <td className="p-3">{a.garson_ad}</td>
+                  <td className="p-3">{a.masa_numara}{a.masa_ad ? ` (${a.masa_ad})` : ''}</td>
+                  <td className="p-3 font-semibold text-red-700">{a.toplam} ₺</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {adisyonDetay && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" onClick={() => setAdisyonDetay(null)}>
+            <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800">Adisyon #{adisyonDetay.adisyon.id}</h3>
+                  <p className="text-sm text-gray-500">{adisyonDetay.adisyon.masa_ad || `Masa ${adisyonDetay.adisyon.masa_numara}`}</p>
+                </div>
+                <button onClick={() => setAdisyonDetay(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-500">Garson</div>
+                  <div className="font-semibold text-sm">{adisyonDetay.adisyon.garson_ad}</div>
+                </div>
+                <div className="bg-red-50 rounded-lg p-3">
+                  <div className="text-xs text-red-500">Durum</div>
+                  <div className="font-semibold text-sm text-red-700">İptal</div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-500">Açılış</div>
+                  <div className="font-semibold text-sm">{new Date(adisyonDetay.adisyon.acilis_tarih).toLocaleString('tr-TR')}</div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-500">İptal Tarihi</div>
+                  <div className="font-semibold text-sm">{adisyonDetay.adisyon.kapanis_tarih ? new Date(adisyonDetay.adisyon.kapanis_tarih).toLocaleString('tr-TR') : '-'}</div>
+                </div>
+              </div>
+              <h4 className="font-semibold text-sm text-gray-700 mb-2">Kalemler</h4>
+              <div className="space-y-1 mb-4">
+                {adisyonDetay.kalemler.length === 0 ? (
+                  <p className="text-gray-400 text-sm">Ürün yok</p>
+                ) : adisyonDetay.kalemler.map((k: any) => (
+                  <div key={k.id} className={`flex justify-between items-center p-2 rounded-lg text-sm ${k.durum === 'iptal' ? 'bg-red-50 text-gray-400 line-through' : 'bg-gray-50'}`}>
+                    <div className="flex-1">
+                      <span className="font-medium">{k.urun_ad}</span>
+                      <span className="text-gray-400 text-xs"> x{k.miktar}</span>
+                      {k.durum === 'iptal' && <span className="text-xs text-red-500 ml-2">(iptal)</span>}
+                    </div>
+                    <span className="font-semibold">{k.toplam} ₺</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t pt-3">
+                <div className="flex justify-between text-lg font-bold">
+                  <span>Toplam:</span><span className="text-red-700">{adisyonDetay.adisyon.toplam} ₺</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {mesaj && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-3 rounded-full text-sm z-50">{mesaj}</div>}
       </div>
     )
   }

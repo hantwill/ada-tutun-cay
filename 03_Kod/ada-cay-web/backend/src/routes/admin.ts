@@ -285,6 +285,30 @@ router.get('/rapor/adisyon/:id', async (req, res) => {
   }
 });
 
+// İptal edilen adisyonlar listesi (durum='iptal')
+router.get('/iptal-adisyonlar', async (req, res) => {
+  const baslangic = req.query.baslangic as string;
+  const bitis = req.query.bitis as string;
+  try {
+    let query = `SELECT a.id, a.toplam, a.acilis_tarih, a.kapanis_tarih,
+            k.ad as garson_ad, m.numara as masa_numara, m.ad as masa_ad
+     FROM adisyonlar a
+     JOIN kullanicilar k ON a.garson_id = k.id
+     JOIN masalar m ON a.masa_id = m.id
+     WHERE a.durum = 'iptal'`;
+    let params: any[] = [];
+    if (baslangic && bitis) {
+      query += ` AND date(a.kapanis_tarih) BETWEEN date($1) AND date($2)`;
+      params = [baslangic, bitis];
+    }
+    query += ` ORDER BY a.kapanis_tarih DESC`;
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch {
+    res.status(500).json({ hata: 'Sunucu hatası' });
+  }
+});
+
 // Rapor — tarih aralığı
 router.get('/rapor', async (req, res) => {
   const baslangic = req.query.baslangic as string;
@@ -294,7 +318,8 @@ router.get('/rapor', async (req, res) => {
   }
   try {
     const adisyonlar = await pool.query(
-      `SELECT a.*, k.ad as garson_ad, m.numara as masa_numara
+      `SELECT a.id, a.toplam, a.odeme_tipi, a.acilis_tarih, a.kapanis_tarih, a.durum,
+              k.ad as garson_ad, m.numara as masa_numara
        FROM adisyonlar a
        JOIN kullanicilar k ON a.garson_id = k.id
        JOIN masalar m ON a.masa_id = m.id
@@ -399,7 +424,7 @@ router.get('/rapor/csv', async (req, res) => {
     const giderToplam = gelirGider.rows.filter((g) => g.tip === 'gider').reduce((s, g) => s + parseFloat(g.miktar), 0);
 
     csv += `\n;;Toplam Satis:;${satisToplam.toFixed(2)};;;Toplam Gelir:;${gelirToplam.toFixed(2)};;\n`;
-    csv += `;;;Net:;${(satisToplam + gelirToplam - giderToplam).toFixed(2)};;;Toplam Gider:;${giderToplam.toFixed(2)};;\n`;
+    csv += `;;;Net:;${(satisToplam + gelirToplam - giderToplam).toFixed(2)};;;;\n`;
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="rapor_${baslangic}_${bitis}.csv"`);
